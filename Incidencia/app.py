@@ -36,6 +36,11 @@ MAX_PASSWORD_LENGTH = 128
 HTML_ANGLE_RE = re.compile(r"[<>]")
 CONSECUTIVE_SPACES_RE = re.compile(r" {2,}")
 TITLE_TRAILING_PUNCT_RE = re.compile(r"[.,;]$")
+USERNAME_PATTERN = re.compile(r"^[A-Za-z0-9._-]+$")
+CONTROL_CHARS_RE = re.compile(r"[\t\n\r]")
+URL_RE = re.compile(r"https?://")
+MIN_DESCRIPCION_CRITICA = 30
+MIN_DESCRIPCION_EN_PROGRESO = 20
 
 db = SQLAlchemy()
 ViewFunc = TypeVar("ViewFunc", bound=Callable[..., Any])
@@ -268,6 +273,30 @@ def validate_incidencia(form_data: dict[str, str]) -> dict[str, str]:
     if responsable and "responsable" not in errors and CONSECUTIVE_SPACES_RE.search(responsable):
         errors["responsable"] = "El responsable no puede contener espacios consecutivos."
 
+    if responsable and "responsable" not in errors and not responsable[0].isalpha():
+        errors["responsable"] = "El responsable debe comenzar con una letra."
+
+    if responsable and "responsable" not in errors and sum(1 for c in responsable if c.isalpha()) < 2:
+        errors["responsable"] = "El responsable debe contener al menos dos letras."
+
+    if titulo and "titulo" not in errors and CONTROL_CHARS_RE.search(titulo):
+        errors["titulo"] = "El titulo no puede contener tabulaciones ni saltos de linea."
+
+    if titulo and "titulo" not in errors and URL_RE.search(titulo):
+        errors["titulo"] = "El titulo no puede contener URLs."
+
+    if descripcion and "descripcion" not in errors and CONTROL_CHARS_RE.search(descripcion):
+        errors["descripcion"] = "La descripcion no puede contener tabulaciones ni saltos de linea."
+
+    if descripcion and "descripcion" not in errors and len(descripcion.split()) < 3:
+        errors["descripcion"] = "La descripcion debe contener al menos 3 palabras."
+
+    if form_data["prioridad"] == "Critica" and "descripcion" not in errors and len(descripcion) < MIN_DESCRIPCION_CRITICA:
+        errors["descripcion"] = f"Las incidencias criticas requieren una descripcion de al menos {MIN_DESCRIPCION_CRITICA} caracteres."
+
+    if form_data["estado"] == "En progreso" and "descripcion" not in errors and len(descripcion) < MIN_DESCRIPCION_EN_PROGRESO:
+        errors["descripcion"] = "Las incidencias en progreso requieren una descripcion de al menos 20 caracteres."
+
     return errors
 
 
@@ -308,6 +337,8 @@ def validate_login(username: str, password: str) -> dict[str, str]:
             errors["username"] = max_err
         if not errors.get("username") and re.search(r"\s", username_stripped):
             errors["username"] = "El usuario no puede contener espacios."
+        if not errors.get("username") and not USERNAME_PATTERN.fullmatch(username_stripped):
+            errors["username"] = "El usuario solo puede contener letras, numeros, punto, guion y guion bajo."
 
     if not password:
         errors["password"] = "La contrasena es obligatoria."
@@ -318,6 +349,9 @@ def validate_login(username: str, password: str) -> dict[str, str]:
         pass_max_err = validate_max_length(password, MAX_PASSWORD_LENGTH, "La contrasena")
         if pass_max_err:
             errors["password"] = pass_max_err
+
+    if not errors.get("password") and not errors.get("username") and password.lower() == username_stripped.lower():
+        errors["password"] = "La contrasena no puede ser igual al nombre de usuario."
 
     return errors
 
