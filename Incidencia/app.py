@@ -42,6 +42,15 @@ URL_RE = re.compile(r"https?://")
 MIN_DESCRIPCION_CRITICA = 30
 MIN_DESCRIPCION_EN_PROGRESO = 20
 RESPONSABLE_RESERVED = frozenset({"admin", "sistema", "root", "nadie", "ninguno", "n/a"})
+COMMON_PASSWORDS = frozenset({
+    "12345678", "password", "password1", "qwerty123",
+    "letmein1", "welcome1", "iloveyou1", "sunshine1",
+})
+TITULO_RESERVED_WORDS = frozenset(v.lower() for v in ESTADOS + PRIORIDADES)
+REPEATED_CHAR_RE = re.compile(r"(.)\1{3,}")
+REPEATED_PUNCT_RE = re.compile(r"([!?.])\1+$")
+CONSECUTIVE_SPECIAL_RE = re.compile(r"[._-]{2,}")
+MIN_DESCRIPCION_CERRADA_CRITICA = 40
 
 db = SQLAlchemy()
 ViewFunc = TypeVar("ViewFunc", bound=Callable[..., Any])
@@ -324,6 +333,48 @@ def validate_incidencia(form_data: dict[str, str]) -> dict[str, str]:
     if responsable and "responsable" not in errors and (responsable[0] == "." or responsable[-1] == "."):
         errors["responsable"] = "El responsable no puede comenzar ni terminar con un punto."
 
+    if titulo and "titulo" not in errors and titulo[0].isalpha() and not titulo[0].isupper():
+        errors["titulo"] = "El titulo debe comenzar con una letra mayuscula."
+
+    if titulo and "titulo" not in errors and REPEATED_CHAR_RE.search(titulo):
+        errors["titulo"] = "El titulo no puede contener el mismo caracter repetido 4 o mas veces seguidas."
+
+    if titulo and "titulo" not in errors and re.search(r"\d{5,}", titulo):
+        errors["titulo"] = "El titulo no puede contener 5 o mas digitos consecutivos."
+
+    if titulo and "titulo" not in errors and titulo.lower() in TITULO_RESERVED_WORDS:
+        errors["titulo"] = "El titulo no puede coincidir con el nombre de un estado o prioridad."
+
+    if descripcion and "descripcion" not in errors and descripcion[0].isalpha() and not descripcion[0].isupper():
+        errors["descripcion"] = "La descripcion debe comenzar con una letra mayuscula."
+
+    if descripcion and "descripcion" not in errors:
+        _dwords = descripcion.lower().split()
+        if len(_dwords) >= 4 and len(set(_dwords)) / len(_dwords) < 0.5:
+            errors["descripcion"] = "La descripcion contiene demasiadas palabras repetidas."
+
+    if descripcion and "descripcion" not in errors and URL_RE.search(descripcion):
+        errors["descripcion"] = "La descripcion no puede contener URLs."
+
+    if descripcion and "descripcion" not in errors and REPEATED_PUNCT_RE.search(descripcion):
+        errors["descripcion"] = "La descripcion no puede terminar con signos de puntuacion repetidos."
+
+    if responsable and "responsable" not in errors and len(responsable.split()) > 4:
+        errors["responsable"] = "El responsable no puede tener mas de 4 palabras."
+
+    if responsable and "responsable" not in errors and sum(1 for c in responsable if c.isdigit()) > 2:
+        errors["responsable"] = "El responsable no puede contener mas de 2 digitos."
+
+    if (
+        form_data["estado"] == "Cerrada"
+        and form_data["prioridad"] == "Critica"
+        and "descripcion" not in errors
+        and len(descripcion) < MIN_DESCRIPCION_CERRADA_CRITICA
+    ):
+        errors["descripcion"] = (
+            f"Las incidencias criticas cerradas requieren una descripcion de al menos {MIN_DESCRIPCION_CERRADA_CRITICA} caracteres."
+        )
+
     return errors
 
 
@@ -368,6 +419,10 @@ def validate_login(username: str, password: str) -> dict[str, str]:
             errors["username"] = "El usuario solo puede contener letras, numeros, punto, guion y guion bajo."
         if not errors.get("username") and username_stripped.isdigit():
             errors["username"] = "El usuario no puede estar compuesto solo de numeros."
+        if not errors.get("username") and (username_stripped[0] in "._-" or username_stripped[-1] in "._-"):
+            errors["username"] = "El usuario no puede comenzar ni terminar con punto, guion ni guion bajo."
+        if not errors.get("username") and CONSECUTIVE_SPECIAL_RE.search(username_stripped):
+            errors["username"] = "El usuario no puede tener punto, guion ni guion bajo consecutivos."
 
     if not password:
         errors["password"] = "La contrasena es obligatoria."
@@ -378,6 +433,10 @@ def validate_login(username: str, password: str) -> dict[str, str]:
         pass_max_err = validate_max_length(password, MAX_PASSWORD_LENGTH, "La contrasena")
         if pass_max_err:
             errors["password"] = pass_max_err
+        if not errors.get("password") and password.lower() in COMMON_PASSWORDS:
+            errors["password"] = "La contrasena es demasiado comun. Elige una mas segura."
+        if not errors.get("password") and password.isalpha():
+            errors["password"] = "La contrasena debe contener al menos un caracter no alfabetico."
 
     if not errors.get("password") and not errors.get("username") and password.lower() == username_stripped.lower():
         errors["password"] = "La contrasena no puede ser igual al nombre de usuario."
@@ -460,6 +519,12 @@ def register_routes(app: Flask) -> None:
 
         if request.method == "POST":
             errors = validate_incidencia(form_data)
+            if not errors and form_data["estado"] == "Cerrada" and form_data["prioridad"] == "Critica":
+                errors["estado"] = "No se puede crear una incidencia critica directamente como Cerrada."
+            if not errors:
+                existing = Incidencia.query.filter_by(titulo=form_data["titulo"], estado="Abierta").first()
+                if existing:
+                    errors["titulo"] = "Ya existe una incidencia abierta con el mismo titulo."
             if not errors:
                 incidencia = Incidencia(**form_data)
                 db.session.add(incidencia)
@@ -525,6 +590,10 @@ def register_routes(app: Flask) -> None:
         incidencia = db.session.get(Incidencia, incidencia_id)
         if incidencia is None:
             flash("La incidencia solicitada no existe.", "error")
+            return redirect(url_for("listar_incidencias"))
+
+        if incidencia.estado == "Abierta" and incidencia.prioridad == "Critica":
+            flash("No se puede eliminar una incidencia critica que sigue abierta.", "error")
             return redirect(url_for("listar_incidencias"))
 
         db.session.delete(incidencia)
