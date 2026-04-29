@@ -41,6 +41,7 @@ CONTROL_CHARS_RE = re.compile(r"[\t\n\r]")
 URL_RE = re.compile(r"https?://")
 MIN_DESCRIPCION_CRITICA = 30
 MIN_DESCRIPCION_EN_PROGRESO = 20
+RESPONSABLE_RESERVED = frozenset({"admin", "sistema", "root", "nadie", "ninguno", "n/a"})
 
 db = SQLAlchemy()
 ViewFunc = TypeVar("ViewFunc", bound=Callable[..., Any])
@@ -297,6 +298,32 @@ def validate_incidencia(form_data: dict[str, str]) -> dict[str, str]:
     if form_data["estado"] == "En progreso" and "descripcion" not in errors and len(descripcion) < MIN_DESCRIPCION_EN_PROGRESO:
         errors["descripcion"] = "Las incidencias en progreso requieren una descripcion de al menos 20 caracteres."
 
+    if titulo and "titulo" not in errors and len(titulo.split()) < 2:
+        errors["titulo"] = "El titulo debe contener al menos dos palabras."
+
+    if titulo and "titulo" not in errors and len(titulo.split()) > 10:
+        errors["titulo"] = "El titulo no puede superar 10 palabras."
+
+    if titulo and "titulo" not in errors and any(c.isalpha() for c in titulo) and all(c.isupper() or not c.isalpha() for c in titulo):
+        errors["titulo"] = "El titulo no puede estar escrito enteramente en mayusculas."
+
+    if descripcion and "descripcion" not in errors:
+        _words = descripcion.lower().split()
+        if len(_words) > 1 and len(set(_words)) == 1:
+            errors["descripcion"] = "La descripcion no puede consistir en la misma palabra repetida."
+
+    if descripcion and "descripcion" not in errors and any(len(w) > 50 for w in descripcion.split()):
+        errors["descripcion"] = "La descripcion no puede contener palabras de mas de 50 caracteres."
+
+    if descripcion and "descripcion" not in errors and not (descripcion[0].isalpha() or descripcion[0].isdigit()):
+        errors["descripcion"] = "La descripcion debe comenzar con una letra o numero."
+
+    if responsable and "responsable" not in errors and responsable.lower() in RESPONSABLE_RESERVED:
+        errors["responsable"] = "El responsable no puede ser un nombre de sistema reservado."
+
+    if responsable and "responsable" not in errors and (responsable[0] == "." or responsable[-1] == "."):
+        errors["responsable"] = "El responsable no puede comenzar ni terminar con un punto."
+
     return errors
 
 
@@ -339,6 +366,8 @@ def validate_login(username: str, password: str) -> dict[str, str]:
             errors["username"] = "El usuario no puede contener espacios."
         if not errors.get("username") and not USERNAME_PATTERN.fullmatch(username_stripped):
             errors["username"] = "El usuario solo puede contener letras, numeros, punto, guion y guion bajo."
+        if not errors.get("username") and username_stripped.isdigit():
+            errors["username"] = "El usuario no puede estar compuesto solo de numeros."
 
     if not password:
         errors["password"] = "La contrasena es obligatoria."
@@ -463,18 +492,21 @@ def register_routes(app: Flask) -> None:
         errors: dict[str, str] = {}
 
         if request.method == "POST":
-            errors = validate_incidencia(form_data)
-            if not errors:
-                incidencia.titulo = form_data["titulo"]
-                incidencia.descripcion = form_data["descripcion"]
-                incidencia.responsable = form_data["responsable"]
-                incidencia.estado = form_data["estado"]
-                incidencia.prioridad = form_data["prioridad"]
-                if commit_with_handling(
-                    "Incidencia actualizada correctamente.",
-                    "No se pudo actualizar la incidencia. Intenta nuevamente.",
-                ):
-                    return redirect(url_for("listar_incidencias"))
+            if incidencia.estado == "Cerrada" and form_data["estado"] != "Cerrada":
+                errors["estado"] = "Una incidencia cerrada no puede cambiar de estado."
+            else:
+                errors = validate_incidencia(form_data)
+                if not errors:
+                    incidencia.titulo = form_data["titulo"]
+                    incidencia.descripcion = form_data["descripcion"]
+                    incidencia.responsable = form_data["responsable"]
+                    incidencia.estado = form_data["estado"]
+                    incidencia.prioridad = form_data["prioridad"]
+                    if commit_with_handling(
+                        "Incidencia actualizada correctamente.",
+                        "No se pudo actualizar la incidencia. Intenta nuevamente.",
+                    ):
+                        return redirect(url_for("listar_incidencias"))
 
         return render_template(
             "form.html",

@@ -863,3 +863,270 @@ def test_create_incidencia_rejects_short_descripcion_for_en_progreso(tmp_path):
 
     with app.app_context():
         assert Incidencia.query.count() == 0
+
+
+# --- Batch 3: 10 nuevas validaciones ---
+
+
+def test_create_incidencia_rejects_single_word_titulo(tmp_path):
+    app = build_app(tmp_path)
+    client = app.test_client()
+    login(client)
+    csrf_token = get_csrf_token(client, "/incidencias/nueva")
+
+    response = client.post(
+        "/incidencias/nueva",
+        data={
+            "csrf_token": csrf_token,
+            "titulo": "Servidor",
+            "descripcion": "El servidor principal no responde a las solicitudes de red.",
+            "responsable": "Soporte",
+            "estado": "Abierta",
+            "prioridad": "Media",
+        },
+        follow_redirects=True,
+    )
+
+    assert response.status_code == 200
+    assert b"El titulo debe contener al menos dos palabras." in response.data
+
+    with app.app_context():
+        assert Incidencia.query.count() == 0
+
+
+def test_create_incidencia_rejects_titulo_with_too_many_words(tmp_path):
+    app = build_app(tmp_path)
+    client = app.test_client()
+    login(client)
+    csrf_token = get_csrf_token(client, "/incidencias/nueva")
+
+    response = client.post(
+        "/incidencias/nueva",
+        data={
+            "csrf_token": csrf_token,
+            "titulo": "Error en el servidor de base de datos del cliente final extendido",
+            "descripcion": "El servidor principal no responde a las solicitudes de red.",
+            "responsable": "Soporte",
+            "estado": "Abierta",
+            "prioridad": "Media",
+        },
+        follow_redirects=True,
+    )
+
+    assert response.status_code == 200
+    assert b"El titulo no puede superar 10 palabras." in response.data
+
+    with app.app_context():
+        assert Incidencia.query.count() == 0
+
+
+def test_create_incidencia_rejects_all_caps_titulo(tmp_path):
+    app = build_app(tmp_path)
+    client = app.test_client()
+    login(client)
+    csrf_token = get_csrf_token(client, "/incidencias/nueva")
+
+    response = client.post(
+        "/incidencias/nueva",
+        data={
+            "csrf_token": csrf_token,
+            "titulo": "SERVIDOR CAIDO",
+            "descripcion": "El servidor principal no responde a las solicitudes de red.",
+            "responsable": "Soporte",
+            "estado": "Abierta",
+            "prioridad": "Media",
+        },
+        follow_redirects=True,
+    )
+
+    assert response.status_code == 200
+    assert b"El titulo no puede estar escrito enteramente en mayusculas." in response.data
+
+    with app.app_context():
+        assert Incidencia.query.count() == 0
+
+
+def test_create_incidencia_rejects_descripcion_with_repeated_word(tmp_path):
+    app = build_app(tmp_path)
+    client = app.test_client()
+    login(client)
+    csrf_token = get_csrf_token(client, "/incidencias/nueva")
+
+    response = client.post(
+        "/incidencias/nueva",
+        data={
+            "csrf_token": csrf_token,
+            "titulo": "Falla de red",
+            "descripcion": "error error error error error",
+            "responsable": "Soporte",
+            "estado": "Abierta",
+            "prioridad": "Media",
+        },
+        follow_redirects=True,
+    )
+
+    assert response.status_code == 200
+    assert b"La descripcion no puede consistir en la misma palabra repetida." in response.data
+
+    with app.app_context():
+        assert Incidencia.query.count() == 0
+
+
+def test_create_incidencia_rejects_descripcion_with_long_word(tmp_path):
+    app = build_app(tmp_path)
+    client = app.test_client()
+    login(client)
+    csrf_token = get_csrf_token(client, "/incidencias/nueva")
+
+    long_word = "a" * 51
+    response = client.post(
+        "/incidencias/nueva",
+        data={
+            "csrf_token": csrf_token,
+            "titulo": "Falla de red",
+            "descripcion": f"El sistema presenta {long_word} errores consecutivos.",
+            "responsable": "Soporte",
+            "estado": "Abierta",
+            "prioridad": "Media",
+        },
+        follow_redirects=True,
+    )
+
+    assert response.status_code == 200
+    assert b"La descripcion no puede contener palabras de mas de 50 caracteres." in response.data
+
+    with app.app_context():
+        assert Incidencia.query.count() == 0
+
+
+def test_create_incidencia_rejects_descripcion_starting_with_special_char(tmp_path):
+    app = build_app(tmp_path)
+    client = app.test_client()
+    login(client)
+    csrf_token = get_csrf_token(client, "/incidencias/nueva")
+
+    response = client.post(
+        "/incidencias/nueva",
+        data={
+            "csrf_token": csrf_token,
+            "titulo": "Falla de red",
+            "descripcion": "!!! El servidor no responde a las solicitudes.",
+            "responsable": "Soporte",
+            "estado": "Abierta",
+            "prioridad": "Media",
+        },
+        follow_redirects=True,
+    )
+
+    assert response.status_code == 200
+    assert b"La descripcion debe comenzar con una letra o numero." in response.data
+
+    with app.app_context():
+        assert Incidencia.query.count() == 0
+
+
+def test_create_incidencia_rejects_reserved_responsable(tmp_path):
+    app = build_app(tmp_path)
+    client = app.test_client()
+    login(client)
+    csrf_token = get_csrf_token(client, "/incidencias/nueva")
+
+    response = client.post(
+        "/incidencias/nueva",
+        data={
+            "csrf_token": csrf_token,
+            "titulo": "Falla de red",
+            "descripcion": "El servidor principal no responde a las solicitudes de red.",
+            "responsable": "admin",
+            "estado": "Abierta",
+            "prioridad": "Media",
+        },
+        follow_redirects=True,
+    )
+
+    assert response.status_code == 200
+    assert b"El responsable no puede ser un nombre de sistema reservado." in response.data
+
+    with app.app_context():
+        assert Incidencia.query.count() == 0
+
+
+def test_create_incidencia_rejects_responsable_ending_with_dot(tmp_path):
+    app = build_app(tmp_path)
+    client = app.test_client()
+    login(client)
+    csrf_token = get_csrf_token(client, "/incidencias/nueva")
+
+    response = client.post(
+        "/incidencias/nueva",
+        data={
+            "csrf_token": csrf_token,
+            "titulo": "Falla de red",
+            "descripcion": "El servidor principal no responde a las solicitudes de red.",
+            "responsable": "Soporte.",
+            "estado": "Abierta",
+            "prioridad": "Media",
+        },
+        follow_redirects=True,
+    )
+
+    assert response.status_code == 200
+    assert b"El responsable no puede comenzar ni terminar con un punto." in response.data
+
+    with app.app_context():
+        assert Incidencia.query.count() == 0
+
+
+def test_login_rejects_numeric_only_username(tmp_path):
+    app = build_app(tmp_path)
+    client = app.test_client()
+    csrf_token = get_csrf_token(client, "/login")
+
+    response = client.post(
+        "/login",
+        data={"username": "123456", "password": "admin123", "csrf_token": csrf_token},
+        follow_redirects=True,
+    )
+
+    assert response.status_code == 200
+    assert b"El usuario no puede estar compuesto solo de numeros." in response.data
+
+
+def test_edit_rejects_estado_change_from_cerrada(tmp_path):
+    app = build_app(tmp_path)
+
+    with app.app_context():
+        db.session.add(
+            Incidencia(
+                titulo="Servidor resuelto correctamente",
+                descripcion="El servidor fue reparado y verificado por el equipo.",
+                responsable="Soporte",
+                estado="Cerrada",
+                prioridad="Media",
+            )
+        )
+        db.session.commit()
+
+    client = app.test_client()
+    login(client)
+
+    edit_token = get_csrf_token(client, "/incidencias/1/editar")
+    response = client.post(
+        "/incidencias/1/editar",
+        data={
+            "csrf_token": edit_token,
+            "titulo": "Servidor resuelto correctamente",
+            "descripcion": "El servidor fue reparado y verificado por el equipo.",
+            "responsable": "Soporte",
+            "estado": "Abierta",
+            "prioridad": "Media",
+        },
+        follow_redirects=True,
+    )
+
+    assert response.status_code == 200
+    assert b"Una incidencia cerrada no puede cambiar de estado." in response.data
+
+    with app.app_context():
+        inc = Incidencia.query.first()
+        assert inc.estado == "Cerrada"
