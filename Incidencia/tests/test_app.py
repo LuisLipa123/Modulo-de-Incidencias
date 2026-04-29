@@ -403,3 +403,222 @@ def test_build_database_url_uses_postgres_parts(monkeypatch):
     monkeypatch.setenv("POSTGRES_DB", "incidencias")
 
     assert build_database_url() == "postgresql+psycopg://postgres:secreto@localhost:5432/incidencias"
+
+
+# --- Batch 1: 10 nuevas validaciones ---
+
+
+def test_login_rejects_short_username(tmp_path):
+    app = build_app(tmp_path)
+    client = app.test_client()
+    csrf_token = get_csrf_token(client, "/login")
+
+    response = client.post(
+        "/login",
+        data={"username": "ab", "password": "admin123", "csrf_token": csrf_token},
+        follow_redirects=True,
+    )
+
+    assert response.status_code == 200
+    assert b"El usuario debe tener al menos 3 caracteres." in response.data
+
+
+def test_login_rejects_username_with_spaces(tmp_path):
+    app = build_app(tmp_path)
+    client = app.test_client()
+    csrf_token = get_csrf_token(client, "/login")
+
+    response = client.post(
+        "/login",
+        data={"username": "ad min", "password": "admin123", "csrf_token": csrf_token},
+        follow_redirects=True,
+    )
+
+    assert response.status_code == 200
+    assert b"El usuario no puede contener espacios." in response.data
+
+
+def test_login_rejects_short_password(tmp_path):
+    app = build_app(tmp_path)
+    client = app.test_client()
+    csrf_token = get_csrf_token(client, "/login")
+
+    response = client.post(
+        "/login",
+        data={"username": "admin", "password": "passwor", "csrf_token": csrf_token},
+        follow_redirects=True,
+    )
+
+    assert response.status_code == 200
+    assert b"La contrasena debe tener al menos 8 caracteres." in response.data
+
+
+def test_login_rejects_oversized_password(tmp_path):
+    app = build_app(tmp_path)
+    client = app.test_client()
+    csrf_token = get_csrf_token(client, "/login")
+
+    response = client.post(
+        "/login",
+        data={"username": "admin", "password": "p" * 129, "csrf_token": csrf_token},
+        follow_redirects=True,
+    )
+
+    assert response.status_code == 200
+    assert b"La contrasena no puede superar 128 caracteres." in response.data
+
+
+def test_create_incidencia_rejects_numeric_only_titulo(tmp_path):
+    app = build_app(tmp_path)
+    client = app.test_client()
+    login(client)
+    csrf_token = get_csrf_token(client, "/incidencias/nueva")
+
+    response = client.post(
+        "/incidencias/nueva",
+        data={
+            "csrf_token": csrf_token,
+            "titulo": "12345",
+            "descripcion": "El servidor principal no responde a las solicitudes.",
+            "responsable": "Infraestructura",
+            "estado": "Abierta",
+            "prioridad": "Alta",
+        },
+        follow_redirects=True,
+    )
+
+    assert response.status_code == 200
+    assert b"El titulo debe contener al menos una letra." in response.data
+
+    with app.app_context():
+        assert Incidencia.query.count() == 0
+
+
+def test_create_incidencia_rejects_html_in_titulo(tmp_path):
+    app = build_app(tmp_path)
+    client = app.test_client()
+    login(client)
+    csrf_token = get_csrf_token(client, "/incidencias/nueva")
+
+    response = client.post(
+        "/incidencias/nueva",
+        data={
+            "csrf_token": csrf_token,
+            "titulo": "<script>alert(1)</script>",
+            "descripcion": "Intento de inyeccion de codigo en el sistema de incidencias.",
+            "responsable": "Seguridad",
+            "estado": "Abierta",
+            "prioridad": "Alta",
+        },
+        follow_redirects=True,
+    )
+
+    assert response.status_code == 200
+    assert b"El titulo no puede contener los caracteres" in response.data
+
+    with app.app_context():
+        assert Incidencia.query.count() == 0
+
+
+def test_create_incidencia_rejects_html_in_descripcion(tmp_path):
+    app = build_app(tmp_path)
+    client = app.test_client()
+    login(client)
+    csrf_token = get_csrf_token(client, "/incidencias/nueva")
+
+    response = client.post(
+        "/incidencias/nueva",
+        data={
+            "csrf_token": csrf_token,
+            "titulo": "Intento de XSS detectado",
+            "descripcion": "<img src=x onerror=alert(1)> detectado en el sistema de incidencias.",
+            "responsable": "Seguridad",
+            "estado": "Abierta",
+            "prioridad": "Alta",
+        },
+        follow_redirects=True,
+    )
+
+    assert response.status_code == 200
+    assert b"La descripcion no puede contener los caracteres" in response.data
+
+    with app.app_context():
+        assert Incidencia.query.count() == 0
+
+
+def test_create_incidencia_rejects_consecutive_spaces_in_responsable(tmp_path):
+    app = build_app(tmp_path)
+    client = app.test_client()
+    login(client)
+    csrf_token = get_csrf_token(client, "/incidencias/nueva")
+
+    response = client.post(
+        "/incidencias/nueva",
+        data={
+            "csrf_token": csrf_token,
+            "titulo": "Servidor caido en produccion",
+            "descripcion": "El servidor principal no responde a las solicitudes de red.",
+            "responsable": "Juan  Perez",
+            "estado": "Abierta",
+            "prioridad": "Media",
+        },
+        follow_redirects=True,
+    )
+
+    assert response.status_code == 200
+    assert b"El responsable no puede contener espacios consecutivos." in response.data
+
+    with app.app_context():
+        assert Incidencia.query.count() == 0
+
+
+def test_create_incidencia_rejects_trailing_punct_in_titulo(tmp_path):
+    app = build_app(tmp_path)
+    client = app.test_client()
+    login(client)
+    csrf_token = get_csrf_token(client, "/incidencias/nueva")
+
+    response = client.post(
+        "/incidencias/nueva",
+        data={
+            "csrf_token": csrf_token,
+            "titulo": "Error de red.",
+            "descripcion": "Se pierde la conectividad en la oficina central al intentar conectarse.",
+            "responsable": "Soporte",
+            "estado": "Abierta",
+            "prioridad": "Baja",
+        },
+        follow_redirects=True,
+    )
+
+    assert response.status_code == 200
+    assert b"El titulo no debe terminar con punto" in response.data
+
+    with app.app_context():
+        assert Incidencia.query.count() == 0
+
+
+def test_create_incidencia_rejects_descripcion_identical_to_titulo(tmp_path):
+    app = build_app(tmp_path)
+    client = app.test_client()
+    login(client)
+    csrf_token = get_csrf_token(client, "/incidencias/nueva")
+
+    response = client.post(
+        "/incidencias/nueva",
+        data={
+            "csrf_token": csrf_token,
+            "titulo": "Error de conexion VPN",
+            "descripcion": "Error de conexion VPN",
+            "responsable": "Infraestructura",
+            "estado": "Abierta",
+            "prioridad": "Media",
+        },
+        follow_redirects=True,
+    )
+
+    assert response.status_code == 200
+    assert b"La descripcion no puede ser identica al titulo." in response.data
+
+    with app.app_context():
+        assert Incidencia.query.count() == 0

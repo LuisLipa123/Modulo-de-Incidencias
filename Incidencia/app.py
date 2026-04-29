@@ -30,6 +30,12 @@ MIN_RESPONSABLE_LENGTH = 3
 MAX_RESPONSABLE_LENGTH = 120
 MAX_USERNAME_LENGTH = 50
 RESPONSABLE_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 ._-]*$")
+MIN_USERNAME_LENGTH = 3
+MIN_PASSWORD_LENGTH = 8
+MAX_PASSWORD_LENGTH = 128
+HTML_ANGLE_RE = re.compile(r"[<>]")
+CONSECUTIVE_SPACES_RE = re.compile(r" {2,}")
+TITLE_TRAILING_PUNCT_RE = re.compile(r"[.,;]$")
 
 db = SQLAlchemy()
 ViewFunc = TypeVar("ViewFunc", bound=Callable[..., Any])
@@ -244,6 +250,24 @@ def validate_incidencia(form_data: dict[str, str]) -> dict[str, str]:
     if form_data["estado"] == "Cerrada" and len(descripcion) < 20:
         errors["descripcion"] = "La descripcion debe documentar el cierre con al menos 20 caracteres."
 
+    if titulo and "titulo" not in errors and not re.search(r"[A-Za-zÀ-ÖØ-öø-ÿ]", titulo):
+        errors["titulo"] = "El titulo debe contener al menos una letra."
+
+    if titulo and "titulo" not in errors and HTML_ANGLE_RE.search(titulo):
+        errors["titulo"] = "El titulo no puede contener los caracteres '<' ni '>'."
+
+    if titulo and "titulo" not in errors and TITLE_TRAILING_PUNCT_RE.search(titulo):
+        errors["titulo"] = "El titulo no debe terminar con punto, coma ni punto y coma."
+
+    if descripcion and "descripcion" not in errors and HTML_ANGLE_RE.search(descripcion):
+        errors["descripcion"] = "La descripcion no puede contener los caracteres '<' ni '>'."
+
+    if titulo and descripcion and "descripcion" not in errors and descripcion.lower() == titulo.lower():
+        errors["descripcion"] = "La descripcion no puede ser identica al titulo."
+
+    if responsable and "responsable" not in errors and CONSECUTIVE_SPACES_RE.search(responsable):
+        errors["responsable"] = "El responsable no puede contener espacios consecutivos."
+
     return errors
 
 
@@ -271,13 +295,30 @@ def extract_form_data(source: Any | None = None) -> dict[str, str]:
 
 def validate_login(username: str, password: str) -> dict[str, str]:
     errors: dict[str, str] = {}
-    if not username.strip():
+    username_stripped = username.strip()
+
+    if not username_stripped:
         errors["username"] = "El usuario es obligatorio."
-    username_length_error = validate_max_length(username.strip(), MAX_USERNAME_LENGTH, "El usuario")
-    if username_length_error is not None:
-        errors["username"] = username_length_error
+    else:
+        min_err = validate_min_length(username_stripped, MIN_USERNAME_LENGTH, "El usuario")
+        if min_err:
+            errors["username"] = min_err
+        max_err = validate_max_length(username_stripped, MAX_USERNAME_LENGTH, "El usuario")
+        if max_err:
+            errors["username"] = max_err
+        if not errors.get("username") and re.search(r"\s", username_stripped):
+            errors["username"] = "El usuario no puede contener espacios."
+
     if not password:
         errors["password"] = "La contrasena es obligatoria."
+    else:
+        pass_min_err = validate_min_length(password, MIN_PASSWORD_LENGTH, "La contrasena")
+        if pass_min_err:
+            errors["password"] = pass_min_err
+        pass_max_err = validate_max_length(password, MAX_PASSWORD_LENGTH, "La contrasena")
+        if pass_max_err:
+            errors["password"] = pass_max_err
+
     return errors
 
 
