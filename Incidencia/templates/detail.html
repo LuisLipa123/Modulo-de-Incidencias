@@ -1,0 +1,42 @@
+{% extends 'base.html' %}
+
+{% block title %}Detalle de incidencia{% endblock %}
+
+{% block content %}
+<section class="panel detail-card">
+    <div class="panel__header panel__header--stacked">
+        <div>
+            <p class="section-label">Detalle</p>
+            <h2>{{ incidencia.titulo }}</h2>
+        </div>
+        <a class="button button--ghost" href="{{ url_for('listar_incidencias') }}">Volver</a>
+    </div>
+
+    <dl class="detail-grid">
+        <div>
+            <dt>ID</dt>
+            <dd>#{{ incidencia.id }}</dd>
+        </div>
+        <div>
+            <dt>Responsable</dt>
+            <dd>{{ incidencia.responsable }}</dd>
+        </div>
+        <div>
+            <dt>Estado</dt>
+            <dd>{{ incidencia.estado }}</dd>
+        </div>
+        <div>
+            <dt>Prioridad</dt>
+            <dd>{{ incidencia.prioridad }}</dd>
+        </div>
+        <div>
+            <dt>Fecha de creacion</dt>
+            <dd>{{ incidencia.fecha_creacion.strftime('%Y-%m-%d %H:%M') }}</dd>
+        </div>
+        <div class="detail-grid__full">
+            <dt>Descripcion</dt>
+            <dd>{{ incidencia.descripcion }}</dd>
+        </div>
+    </dl>
+</section>
+{% endblock %}

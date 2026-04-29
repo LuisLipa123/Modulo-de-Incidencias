@@ -1,0 +1,58 @@
+{% extends 'base.html' %}
+
+{% block title %}Listado de incidencias{% endblock %}
+
+{% block content %}
+<section class="panel panel--spaced">
+    <div class="panel__header">
+        <div>
+            <p class="section-label">Panel principal</p>
+            <h2>Incidencias registradas</h2>
+        </div>
+        <a class="button button--primary" href="{{ url_for('crear_incidencia') }}">Registrar incidencia</a>
+    </div>
+
+    {% if incidencias %}
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Titulo</th>
+                        <th>Responsable</th>
+                        <th>Estado</th>
+                        <th>Prioridad</th>
+                        <th>Creada</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for incidencia in incidencias %}
+                        <tr>
+                            <td>#{{ incidencia.id }}</td>
+                            <td>{{ incidencia.titulo }}</td>
+                            <td>{{ incidencia.responsable }}</td>
+                            <td><span class="badge">{{ incidencia.estado }}</span></td>
+                            <td>{{ incidencia.prioridad }}</td>
+                            <td>{{ incidencia.fecha_creacion.strftime('%Y-%m-%d %H:%M') }}</td>
+                            <td class="actions">
+                                <a class="button button--ghost" href="{{ url_for('ver_incidencia', incidencia_id=incidencia.id) }}">Ver</a>
+                                <a class="button button--ghost" href="{{ url_for('editar_incidencia', incidencia_id=incidencia.id) }}">Editar</a>
+                                <form method="post" action="{{ url_for('eliminar_incidencia', incidencia_id=incidencia.id) }}" onsubmit="return confirm('¿Deseas eliminar esta incidencia?');">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                                    <button class="button button--danger" type="submit">Eliminar</button>
+                                </form>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <div class="empty-state">
+            <h3>No hay incidencias registradas</h3>
+            <p>Crea la primera incidencia para empezar a probar el modulo.</p>
+        </div>
+    {% endif %}
+</section>
+{% endblock %}

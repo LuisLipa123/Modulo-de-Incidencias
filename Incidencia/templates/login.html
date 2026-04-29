@@ -1,0 +1,45 @@
+{% extends 'base.html' %}
+
+{% block title %}Iniciar sesion{% endblock %}
+
+{% block content %}
+<section class="panel login-panel">
+    <div class="panel__header panel__header--stacked">
+        <div>
+            <p class="section-label">Acceso</p>
+            <h2>Iniciar sesion</h2>
+        </div>
+        <p class="login-hint">Accede al modulo para gestionar incidencias en localhost.</p>
+    </div>
+
+    <form class="form-grid login-card" method="post" action="{{ url_for('login', next=next_url) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <input type="hidden" name="next" value="{{ next_url }}">
+
+        {% if errors.get('general') %}
+            <div class="flash flash--error full-width">{{ errors['general'] }}</div>
+        {% endif %}
+
+        <label>
+            <span>Usuario</span>
+            <input type="text" name="username" value="{{ username }}" placeholder="admin" required maxlength="50">
+            {% if errors.get('username') %}<small>{{ errors['username'] }}</small>{% endif %}
+        </label>
+
+        <label>
+            <span>Contrasena</span>
+            <input type="password" name="password" placeholder="Ingresa tu contrasena" required>
+            {% if errors.get('password') %}<small>{{ errors['password'] }}</small>{% endif %}
+        </label>
+
+        <div class="full-width empty-state">
+            <strong>Credenciales iniciales</strong>
+            <p>Usuario: admin | Contrasena: admin123</p>
+        </div>
+
+        <div class="form-actions full-width">
+            <button class="button button--primary" type="submit">Entrar</button>
+        </div>
+    </form>
+</section>
+{% endblock %}

@@ -1,0 +1,61 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<section class="panel form-panel">
+    <div class="panel__header panel__header--stacked">
+        <div>
+            <p class="section-label">Formulario</p>
+            <h2>{{ title }}</h2>
+        </div>
+        <a class="button button--ghost" href="{{ url_for('listar_incidencias') }}">Volver al listado</a>
+    </div>
+
+    <form class="form-grid" method="post" action="{{ form_action }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+
+        <label>
+            <span>Titulo</span>
+            <input type="text" name="titulo" value="{{ incidencia['titulo'] }}" placeholder="Ej. Error en acceso al sistema" required minlength="5" maxlength="150">
+            {% if errors.get('titulo') %}<small>{{ errors['titulo'] }}</small>{% endif %}
+        </label>
+
+        <label class="full-width">
+            <span>Descripcion</span>
+            <textarea name="descripcion" rows="5" placeholder="Describe la incidencia" required minlength="10" maxlength="2000">{{ incidencia['descripcion'] }}</textarea>
+            {% if errors.get('descripcion') %}<small>{{ errors['descripcion'] }}</small>{% endif %}
+        </label>
+
+        <label>
+            <span>Responsable</span>
+            <input type="text" name="responsable" value="{{ incidencia['responsable'] }}" placeholder="Nombre del responsable" required minlength="3" maxlength="120" pattern="[A-Za-z0-9][A-Za-z0-9 ._-]*">
+            {% if errors.get('responsable') %}<small>{{ errors['responsable'] }}</small>{% endif %}
+        </label>
+
+        <label>
+            <span>Estado</span>
+            <select name="estado">
+                {% for estado in estados %}
+                    <option value="{{ estado }}" {% if incidencia['estado'] == estado %}selected{% endif %}>{{ estado }}</option>
+                {% endfor %}
+            </select>
+            {% if errors.get('estado') %}<small>{{ errors['estado'] }}</small>{% endif %}
+        </label>
+
+        <label>
+            <span>Prioridad</span>
+            <select name="prioridad">
+                {% for prioridad in prioridades %}
+                    <option value="{{ prioridad }}" {% if incidencia['prioridad'] == prioridad %}selected{% endif %}>{{ prioridad }}</option>
+                {% endfor %}
+            </select>
+            {% if errors.get('prioridad') %}<small>{{ errors['prioridad'] }}</small>{% endif %}
+        </label>
+
+        <div class="form-actions full-width">
+            <button class="button button--primary" type="submit">{{ submit_label }}</button>
+        </div>
+    </form>
+</section>
+{% endblock %}

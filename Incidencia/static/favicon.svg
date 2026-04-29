@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Incidencias">
+  <rect width="64" height="64" rx="14" fill="#102a43"/>
+  <path d="M20 18h24a4 4 0 0 1 4 4v20a4 4 0 0 1-4 4H20a4 4 0 0 1-4-4V22a4 4 0 0 1 4-4Z" fill="#f0b429"/>
+  <path d="M24 28h16M24 34h16M24 40h10" stroke="#102a43" stroke-linecap="round" stroke-width="4"/>
+  <circle cx="46" cy="46" r="10" fill="#d64545"/>
+  <path d="M46 41v6" stroke="#fff" stroke-linecap="round" stroke-width="4"/>
+  <circle cx="46" cy="50" r="2" fill="#fff"/>
+</svg>

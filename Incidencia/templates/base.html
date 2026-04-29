@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Modulo de incidencias{% endblock %}</title>
+    <link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}" type="image/svg+xml">
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <header class="hero">
+        <div class="hero__content">
+            <div class="hero__topbar">
+                <div>
+                    <p class="hero__eyebrow">Proyecto local en Python + PostgreSQL</p>
+                    <h1>Modulo de incidencias</h1>
+                    <p class="hero__copy">Registro, seguimiento y gestion de incidencias con operaciones CRUD completas y acceso por login.</p>
+                </div>
+                {% if current_user %}
+                    <div class="hero__actions">
+                        <span class="user-chip">{{ current_user.nombre_completo }}</span>
+                        <a class="button button--primary" href="{{ url_for('crear_incidencia') }}">Nueva incidencia</a>
+                        <form method="post" action="{{ url_for('logout') }}">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                            <button class="button button--ghost-light" type="submit">Cerrar sesion</button>
+                        </form>
+                    </div>
+                {% else %}
+                    <div class="hero__actions">
+                        <a class="button button--primary" href="{{ url_for('login') }}">Iniciar sesion</a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </header>
+
+    <main class="layout">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <section class="flash-stack">
+                    {% for category, message in messages %}
+                        <article class="flash flash--{{ category }}">{{ message }}</article>
+                    {% endfor %}
+                </section>
+            {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+    </main>
+</body>
+</html>
