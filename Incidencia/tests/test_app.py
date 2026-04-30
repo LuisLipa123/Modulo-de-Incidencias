@@ -2,7 +2,16 @@ import re
 
 from sqlalchemy.exc import SQLAlchemyError
 
-from app import Incidencia, build_database_url, create_app, db, init_db
+from app import (
+    Incidencia,
+    build_database_url,
+    create_app,
+    db,
+    extract_form_data,
+    init_db,
+    validate_incidencia,
+    validate_login,
+)
 
 
 def build_app(tmp_path):
@@ -850,7 +859,7 @@ def test_create_incidencia_rejects_short_descripcion_for_en_progreso(tmp_path):
         data={
             "csrf_token": csrf_token,
             "titulo": "Migracion de base de datos",
-            "descripcion": "Trabajando en esto ahora",
+            "descripcion": "Esto en proceso ya",
             "responsable": "Infraestructura",
             "estado": "En progreso",
             "prioridad": "Alta",
@@ -1601,3 +1610,694 @@ def test_ver_nonexistent_incidencia_redirects_with_error(tmp_path):
 
     assert response.status_code == 200
     assert b"La incidencia solicitada no existe." in response.data
+
+
+# --- Batch 5: 30 nuevos tests (bugs, bordes, flujos) ---
+
+
+def test_home_authenticated_redirects_to_incidencias(tmp_path):
+    app = build_app(tmp_path)
+    client = app.test_client()
+    login(client)
+
+    response = client.get("/")
+
+    assert response.status_code == 302
+    assert "/incidencias" in response.headers["Location"]
+
+
+def test_login_already_authenticated_redirects_to_listado(tmp_path):
+    app = build_app(tmp_path)
+    client = app.test_client()
+    login(client)
+
+    response = client.get("/login")
+
+    assert response.status_code == 302
+    assert "/incidencias" in response.headers["Location"]
+
+
+def test_logout_redirects_to_login(tmp_path):
+    app = build_app(tmp_path)
+    client = app.test_client()
+    login(client)
+
+    listado = client.get("/incidencias")
+    csrf_token = extract_csrf_token(listado)
+    response = client.post("/logout", data={"csrf_token": csrf_token}, follow_redirects=True)
+
+    assert response.status_code == 200
+    assert b"Sesion cerrada correctamente." in response.data
+    assert b"Iniciar sesion" in response.data
+
+
+def test_logout_clears_session(tmp_path):
+    app = build_app(tmp_path)
+    client = app.test_client()
+    login(client)
+
+    listado = client.get("/incidencias")
+    csrf_token = extract_csrf_token(listado)
+    client.post("/logout", data={"csrf_token": csrf_token})
+
+    response = client.get("/incidencias")
+
+    assert response.status_code == 302
+    assert "/login" in response.headers["Location"]
+
+
+def test_eliminar_nonexistent_incidencia_redirects_with_error(tmp_path):
+    app = build_app(tmp_path)
+    client = app.test_client()
+    login(client)
+
+    listado = client.get("/incidencias")
+    csrf_token = extract_csrf_token(listado)
+    response = client.post(
+        "/incidencias/999/eliminar",
+        data={"csrf_token": csrf_token},
+        follow_redirects=True,
+    )
+
+    assert response.status_code == 200
+    assert b"La incidencia solicitada no existe." in response.data
+
+
+def test_create_incidencia_valid_critica_priority_succeeds(tmp_path):
+    app = build_app(tmp_path)
+    client = app.test_client()
+    login(client)
+    csrf_token = get_csrf_token(client, "/incidencias/nueva")
+
+    response = client.post(
+        "/incidencias/nueva",
+        data={
+            "csrf_token": csrf_token,
+            "titulo": "Sistema critico caido hoy",
+            "descripcion": "El sistema critico ha fallado sin respaldo disponible activo.",
+            "responsable": "Infraestructura",
+            "estado": "Abierta",
+            "prioridad": "Critica",
+        },
+        follow_redirects=True,
+    )
+
+    assert response.status_code == 200
+    assert b"Incidencia creada correctamente." in response.data
+
+    with app.app_context():
+        assert Incidencia.query.count() == 1
+
+
+def test_create_incidencia_valid_cerrada_succeeds(tmp_path):
+    app = build_app(tmp_path)
+    client = app.test_client()
+    login(client)
+    csrf_token = get_csrf_token(client, "/incidencias/nueva")
+
+    response = client.post(
+        "/incidencias/nueva",
+        data={
+            "csrf_token": csrf_token,
+            "titulo": "Servicio restaurado correctamente",
+            "descripcion": "El servicio fue restaurado y verificado correctamente.",
+            "responsable": "Soporte",
+            "estado": "Cerrada",
+            "prioridad": "Media",
+        },
+        follow_redirects=True,
+    )
+
+    assert response.status_code == 200
+    assert b"Incidencia creada correctamente." in response.data
+
+    with app.app_context():
+        assert Incidencia.query.count() == 1
+
+
+def test_create_incidencia_valid_en_progreso_succeeds(tmp_path):
+    app = build_app(tmp_path)
+    client = app.test_client()
+    login(client)
+    csrf_token = get_csrf_token(client, "/incidencias/nueva")
+
+    response = client.post(
+        "/incidencias/nueva",
+        data={
+            "csrf_token": csrf_token,
+            "titulo": "Actualizacion de servidores",
+            "descripcion": "Trabajando activamente en la restauracion del servidor principal.",
+            "responsable": "Infraestructura",
+            "estado": "En progreso",
+            "prioridad": "Alta",
+        },
+        follow_redirects=True,
+    )
+
+    assert response.status_code == 200
+    assert b"Incidencia creada correctamente." in response.data
+
+    with app.app_context():
+        assert Incidencia.query.count() == 1
+
+
+def test_create_incidencia_duplicate_titulo_different_estado_allowed(tmp_path):
+    app = build_app(tmp_path)
+    client = app.test_client()
+    login(client)
+
+    with app.app_context():
+        db.session.add(
+            Incidencia(
+                titulo="Servidor caido",
+                descripcion="El servidor principal no responde.",
+                responsable="Soporte",
+                estado="Resuelta",
+                prioridad="Alta",
+            )
+        )
+        db.session.commit()
+
+    csrf_token = get_csrf_token(client, "/incidencias/nueva")
+    response = client.post(
+        "/incidencias/nueva",
+        data={
+            "csrf_token": csrf_token,
+            "titulo": "Servidor caido",
+            "descripcion": "El servidor principal no responde a las solicitudes.",
+            "responsable": "Soporte",
+            "estado": "Abierta",
+            "prioridad": "Alta",
+        },
+        follow_redirects=True,
+    )
+
+    assert response.status_code == 200
+    assert b"Incidencia creada correctamente." in response.data
+
+    with app.app_context():
+        assert Incidencia.query.count() == 2
+
+
+def test_edit_cerrada_keeping_cerrada_estado_allowed(tmp_path):
+    app = build_app(tmp_path)
+
+    with app.app_context():
+        db.session.add(
+            Incidencia(
+                titulo="Servidor resuelto definitivamente",
+                descripcion="El servidor fue reparado y verificado por el equipo.",
+                responsable="Soporte",
+                estado="Cerrada",
+                prioridad="Media",
+            )
+        )
+        db.session.commit()
+
+    client = app.test_client()
+    login(client)
+
+    edit_token = get_csrf_token(client, "/incidencias/1/editar")
+    response = client.post(
+        "/incidencias/1/editar",
+        data={
+            "csrf_token": edit_token,
+            "titulo": "Servidor resuelto definitivamente",
+            "descripcion": "El servidor fue reparado y verificado por el equipo tecnico.",
+            "responsable": "Infraestructura",
+            "estado": "Cerrada",
+            "prioridad": "Media",
+        },
+        follow_redirects=True,
+    )
+
+    assert response.status_code == 200
+    assert b"Incidencia actualizada correctamente." in response.data
+
+    with app.app_context():
+        inc = Incidencia.query.first()
+        assert inc.estado == "Cerrada"
+        assert inc.responsable == "Infraestructura"
+
+
+def test_detail_page_shows_all_fields(tmp_path):
+    app = build_app(tmp_path)
+
+    with app.app_context():
+        db.session.add(
+            Incidencia(
+                titulo="Servidor principal caido",
+                descripcion="El servidor no responde a solicitudes externas.",
+                responsable="Infraestructura",
+                estado="Abierta",
+                prioridad="Alta",
+            )
+        )
+        db.session.commit()
+
+    client = app.test_client()
+    login(client)
+
+    response = client.get("/incidencias/1")
+
+    assert response.status_code == 200
+    assert b"Servidor principal caido" in response.data
+    assert b"Infraestructura" in response.data
+    assert b"Alta" in response.data
+    assert b"Abierta" in response.data
+    assert b"El servidor no responde a solicitudes externas." in response.data
+
+
+def test_list_incidencias_shows_empty_state(tmp_path):
+    app = build_app(tmp_path)
+    client = app.test_client()
+    login(client)
+
+    response = client.get("/incidencias")
+
+    assert response.status_code == 200
+    assert b"No hay incidencias registradas" in response.data
+
+
+def test_create_incidencia_titulo_minimum_length(tmp_path):
+    app = build_app(tmp_path)
+    client = app.test_client()
+    login(client)
+    csrf_token = get_csrf_token(client, "/incidencias/nueva")
+
+    response = client.post(
+        "/incidencias/nueva",
+        data={
+            "csrf_token": csrf_token,
+            "titulo": "Ab cd",
+            "descripcion": "El servidor principal no responde correctamente.",
+            "responsable": "Soporte",
+            "estado": "Abierta",
+            "prioridad": "Baja",
+        },
+        follow_redirects=True,
+    )
+
+    assert response.status_code == 200
+    assert b"Incidencia creada correctamente." in response.data
+
+    with app.app_context():
+        assert Incidencia.query.count() == 1
+
+
+def test_create_incidencia_descripcion_minimum_length(tmp_path):
+    app = build_app(tmp_path)
+    client = app.test_client()
+    login(client)
+    csrf_token = get_csrf_token(client, "/incidencias/nueva")
+
+    response = client.post(
+        "/incidencias/nueva",
+        data={
+            "csrf_token": csrf_token,
+            "titulo": "Falla de red",
+            "descripcion": "Abc de fgh",
+            "responsable": "Soporte",
+            "estado": "Abierta",
+            "prioridad": "Baja",
+        },
+        follow_redirects=True,
+    )
+
+    assert response.status_code == 200
+    assert b"Incidencia creada correctamente." in response.data
+
+    with app.app_context():
+        assert Incidencia.query.count() == 1
+
+
+def test_create_incidencia_minimum_responsable_length(tmp_path):
+    app = build_app(tmp_path)
+    client = app.test_client()
+    login(client)
+    csrf_token = get_csrf_token(client, "/incidencias/nueva")
+
+    response = client.post(
+        "/incidencias/nueva",
+        data={
+            "csrf_token": csrf_token,
+            "titulo": "Falla de red",
+            "descripcion": "El servidor principal no responde correctamente.",
+            "responsable": "Abc",
+            "estado": "Abierta",
+            "prioridad": "Baja",
+        },
+        follow_redirects=True,
+    )
+
+    assert response.status_code == 200
+    assert b"Incidencia creada correctamente." in response.data
+
+    with app.app_context():
+        assert Incidencia.query.count() == 1
+
+
+def test_login_invalid_password_returns_credenciales_invalidas(tmp_path):
+    app = build_app(tmp_path)
+    client = app.test_client()
+    csrf_token = get_csrf_token(client, "/login")
+
+    response = client.post(
+        "/login",
+        data={"username": "admin", "password": "Admin@9999", "csrf_token": csrf_token},
+        follow_redirects=True,
+    )
+
+    assert response.status_code == 200
+    assert b"Credenciales invalidas." in response.data
+
+
+def test_login_nonexistent_user_returns_credenciales_invalidas(tmp_path):
+    app = build_app(tmp_path)
+    client = app.test_client()
+    csrf_token = get_csrf_token(client, "/login")
+
+    response = client.post(
+        "/login",
+        data={"username": "noexiste", "password": "Admin@9999", "csrf_token": csrf_token},
+        follow_redirects=True,
+    )
+
+    assert response.status_code == 200
+    assert b"Credenciales invalidas." in response.data
+
+
+def test_create_resuelta_empty_desc_shows_obligatoria_error(tmp_path):
+    """Regresion: descripcion vacia con estado Resuelta debe mostrar 'obligatoria', no el mensaje de Resuelta."""
+    app = build_app(tmp_path)
+    client = app.test_client()
+    login(client)
+    csrf_token = get_csrf_token(client, "/incidencias/nueva")
+
+    response = client.post(
+        "/incidencias/nueva",
+        data={
+            "csrf_token": csrf_token,
+            "titulo": "Servidor caido hoy",
+            "descripcion": "",
+            "responsable": "Soporte",
+            "estado": "Resuelta",
+            "prioridad": "Media",
+        },
+        follow_redirects=True,
+    )
+
+    assert response.status_code == 200
+    assert b"La descripcion es obligatoria." in response.data
+    assert b"debe explicar la resolucion" not in response.data
+
+    with app.app_context():
+        assert Incidencia.query.count() == 0
+
+
+def test_create_cerrada_empty_desc_shows_obligatoria_error(tmp_path):
+    """Regresion: descripcion vacia con estado Cerrada debe mostrar 'obligatoria', no el mensaje de Cerrada."""
+    app = build_app(tmp_path)
+    client = app.test_client()
+    login(client)
+    csrf_token = get_csrf_token(client, "/incidencias/nueva")
+
+    response = client.post(
+        "/incidencias/nueva",
+        data={
+            "csrf_token": csrf_token,
+            "titulo": "Servidor caido hoy",
+            "descripcion": "",
+            "responsable": "Soporte",
+            "estado": "Cerrada",
+            "prioridad": "Media",
+        },
+        follow_redirects=True,
+    )
+
+    assert response.status_code == 200
+    assert b"La descripcion es obligatoria." in response.data
+    assert b"debe documentar el cierre" not in response.data
+
+    with app.app_context():
+        assert Incidencia.query.count() == 0
+
+
+def test_edit_shows_existing_incidencia_values(tmp_path):
+    app = build_app(tmp_path)
+
+    with app.app_context():
+        db.session.add(
+            Incidencia(
+                titulo="Servidor principal caido",
+                descripcion="El servidor no responde a solicitudes externas.",
+                responsable="Infraestructura",
+                estado="Abierta",
+                prioridad="Alta",
+            )
+        )
+        db.session.commit()
+
+    client = app.test_client()
+    login(client)
+
+    response = client.get("/incidencias/1/editar")
+
+    assert response.status_code == 200
+    assert b"Servidor principal caido" in response.data
+    assert b"Infraestructura" in response.data
+
+
+def test_create_incidencia_valid_responsable_4_words(tmp_path):
+    app = build_app(tmp_path)
+    client = app.test_client()
+    login(client)
+    csrf_token = get_csrf_token(client, "/incidencias/nueva")
+
+    response = client.post(
+        "/incidencias/nueva",
+        data={
+            "csrf_token": csrf_token,
+            "titulo": "Falla de red",
+            "descripcion": "El servidor principal no responde correctamente.",
+            "responsable": "Juan Carlos De Riva",
+            "estado": "Abierta",
+            "prioridad": "Baja",
+        },
+        follow_redirects=True,
+    )
+
+    assert response.status_code == 200
+    assert b"Incidencia creada correctamente." in response.data
+
+    with app.app_context():
+        assert Incidencia.query.count() == 1
+
+
+def test_create_incidencia_baja_prioridad_valid(tmp_path):
+    app = build_app(tmp_path)
+    client = app.test_client()
+    login(client)
+    csrf_token = get_csrf_token(client, "/incidencias/nueva")
+
+    response = client.post(
+        "/incidencias/nueva",
+        data={
+            "csrf_token": csrf_token,
+            "titulo": "Falla menor de impresora",
+            "descripcion": "La impresora de recepcion no imprime en color.",
+            "responsable": "Soporte",
+            "estado": "Abierta",
+            "prioridad": "Baja",
+        },
+        follow_redirects=True,
+    )
+
+    assert response.status_code == 200
+    assert b"Incidencia creada correctamente." in response.data
+
+
+def test_create_incidencia_titulo_exactly_10_words_valid(tmp_path):
+    app = build_app(tmp_path)
+    client = app.test_client()
+    login(client)
+    csrf_token = get_csrf_token(client, "/incidencias/nueva")
+
+    response = client.post(
+        "/incidencias/nueva",
+        data={
+            "csrf_token": csrf_token,
+            "titulo": "Error en servidor de base de datos del cliente",
+            "descripcion": "El servidor principal no responde a las solicitudes de red.",
+            "responsable": "Soporte",
+            "estado": "Abierta",
+            "prioridad": "Media",
+        },
+        follow_redirects=True,
+    )
+
+    assert response.status_code == 200
+    assert b"Incidencia creada correctamente." in response.data
+
+
+def test_validate_incidencia_valid_data_no_errors():
+    errors = validate_incidencia({
+        "titulo": "Servidor principal caido",
+        "descripcion": "El servidor principal no responde a las solicitudes de red.",
+        "responsable": "Infraestructura",
+        "estado": "Abierta",
+        "prioridad": "Media",
+    })
+    assert errors == {}
+
+
+def test_validate_incidencia_all_empty_returns_multiple_errors():
+    errors = validate_incidencia({
+        "titulo": "",
+        "descripcion": "",
+        "responsable": "",
+        "estado": "Invalido",
+        "prioridad": "Invalida",
+    })
+    assert "titulo" in errors
+    assert "descripcion" in errors
+    assert "responsable" in errors
+    assert "estado" in errors
+    assert "prioridad" in errors
+
+
+def test_validate_incidencia_resuelta_exactly_15_chars_valid():
+    errors = validate_incidencia({
+        "titulo": "Servidor caido hoy",
+        "descripcion": "Resuelto ya hoy",
+        "responsable": "Soporte",
+        "estado": "Resuelta",
+        "prioridad": "Media",
+    })
+    assert "descripcion" not in errors
+
+
+def test_validate_incidencia_cerrada_critica_exactly_40_chars_valid():
+    errors = validate_incidencia({
+        "titulo": "Sistema cerrado correctamente hoy",
+        "descripcion": "El sistema fue cerrado sin mas problema.",
+        "responsable": "Infraestructura",
+        "estado": "Cerrada",
+        "prioridad": "Critica",
+    })
+    assert "descripcion" not in errors
+
+
+def test_validate_login_valid_data_no_errors():
+    errors = validate_login("admin", "Admin@2024")
+    assert errors == {}
+
+
+def test_validate_login_both_empty_returns_errors():
+    errors = validate_login("", "")
+    assert "username" in errors
+    assert "password" in errors
+
+
+def test_validate_login_password_same_as_username_returns_error():
+    errors = validate_login("testuser", "testuser")
+    assert "password" in errors
+    assert "igual al nombre de usuario" in errors["password"]
+
+
+def test_build_database_url_no_env_vars_returns_sqlite(monkeypatch):
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    monkeypatch.delenv("POSTGRES_PASSWORD", raising=False)
+
+    url = build_database_url()
+
+    assert url.startswith("sqlite:///")
+    assert "incidencias.db" in url
+
+
+def test_extract_form_data_from_incidencia_model(tmp_path):
+    app = build_app(tmp_path)
+
+    with app.app_context():
+        inc = Incidencia(
+            titulo="Servidor caido",
+            descripcion="No responde correctamente.",
+            responsable="Soporte",
+            estado="Abierta",
+            prioridad="Alta",
+        )
+        data = extract_form_data(inc)
+
+    assert data["titulo"] == "Servidor caido"
+    assert data["descripcion"] == "No responde correctamente."
+    assert data["responsable"] == "Soporte"
+    assert data["estado"] == "Abierta"
+    assert data["prioridad"] == "Alta"
+
+
+def test_extract_form_data_from_dict():
+    data = extract_form_data({
+        "titulo": "  Mi titulo  ",
+        "descripcion": "  Mi descripcion  ",
+        "responsable": "  Soporte  ",
+        "estado": "Cerrada",
+        "prioridad": "Baja",
+    })
+
+    assert data["titulo"] == "Mi titulo"
+    assert data["descripcion"] == "Mi descripcion"
+    assert data["responsable"] == "Soporte"
+    assert data["estado"] == "Cerrada"
+    assert data["prioridad"] == "Baja"
+
+
+def test_create_incidencia_en_progreso_exactly_20_chars_valid(tmp_path):
+    app = build_app(tmp_path)
+    client = app.test_client()
+    login(client)
+    csrf_token = get_csrf_token(client, "/incidencias/nueva")
+
+    response = client.post(
+        "/incidencias/nueva",
+        data={
+            "csrf_token": csrf_token,
+            "titulo": "Actualizacion de servidores",
+            "descripcion": "Trabajando activamente en servidor.",
+            "responsable": "Infraestructura",
+            "estado": "En progreso",
+            "prioridad": "Alta",
+        },
+        follow_redirects=True,
+    )
+
+    assert response.status_code == 200
+    assert b"Incidencia creada correctamente." in response.data
+
+    with app.app_context():
+        assert Incidencia.query.count() == 1
+
+
+def test_create_incidencia_resuelta_exactly_15_chars_valid(tmp_path):
+    app = build_app(tmp_path)
+    client = app.test_client()
+    login(client)
+    csrf_token = get_csrf_token(client, "/incidencias/nueva")
+
+    response = client.post(
+        "/incidencias/nueva",
+        data={
+            "csrf_token": csrf_token,
+            "titulo": "Servidor caido hoy",
+            "descripcion": "Resuelto ya hoy",
+            "responsable": "Soporte",
+            "estado": "Resuelta",
+            "prioridad": "Media",
+        },
+        follow_redirects=True,
+    )
+
+    assert response.status_code == 200
+    assert b"Incidencia creada correctamente." in response.data
+
+    with app.app_context():
+        assert Incidencia.query.count() == 1

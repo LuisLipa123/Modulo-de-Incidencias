@@ -1,0 +1,22 @@
+added_changes.txt
+
+# Test artifacts (production)
+.pytest_cache/
+.tox/
+.nox/
+.hypothesis/
+.cache/
+pytest-debug.log
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+nosetests.xml
+junit*.xml
+
+# Python bytecode
+__pycache__/
+*.pyc
+
+# Tests (no compartir en produccion)
+Incidencia/tests/

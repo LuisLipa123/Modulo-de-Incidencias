@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from functools import wraps
 from pathlib import Path
 from typing import Any, Callable, TypeVar
+from urllib.parse import urlsplit
 
 from flask import Flask, flash, g, redirect, render_template, request, send_from_directory, session, url_for
 from flask_sqlalchemy import SQLAlchemy
@@ -259,10 +260,10 @@ def validate_incidencia(form_data: dict[str, str]) -> dict[str, str]:
     if form_data["prioridad"] not in PRIORIDADES:
         errors["prioridad"] = "Seleccione una prioridad valida."
 
-    if form_data["estado"] == "Resuelta" and len(descripcion) < 15:
+    if form_data["estado"] == "Resuelta" and "descripcion" not in errors and len(descripcion) < 15:
         errors["descripcion"] = "La descripcion debe explicar la resolucion con al menos 15 caracteres."
 
-    if form_data["estado"] == "Cerrada" and len(descripcion) < 20:
+    if form_data["estado"] == "Cerrada" and "descripcion" not in errors and len(descripcion) < 20:
         errors["descripcion"] = "La descripcion debe documentar el cierre con al menos 20 caracteres."
 
     if titulo and "titulo" not in errors and not re.search(r"[A-Za-zÀ-ÖØ-öø-ÿ]", titulo):
@@ -304,8 +305,9 @@ def validate_incidencia(form_data: dict[str, str]) -> dict[str, str]:
     if form_data["prioridad"] == "Critica" and "descripcion" not in errors and len(descripcion) < MIN_DESCRIPCION_CRITICA:
         errors["descripcion"] = f"Las incidencias criticas requieren una descripcion de al menos {MIN_DESCRIPCION_CRITICA} caracteres."
 
-    if form_data["estado"] == "En progreso" and "descripcion" not in errors and len(descripcion) < MIN_DESCRIPCION_EN_PROGRESO:
-        errors["descripcion"] = "Las incidencias en progreso requieren una descripcion de al menos 20 caracteres."
+    if form_data["estado"] == "En progreso" and "descripcion" not in errors:
+        if len(descripcion) < MIN_DESCRIPCION_EN_PROGRESO:
+            errors["descripcion"] = "Las incidencias en progreso requieren una descripcion de al menos 20 caracteres."
 
     if titulo and "titulo" not in errors and len(titulo.split()) < 2:
         errors["titulo"] = "El titulo debe contener al menos dos palabras."
@@ -433,20 +435,44 @@ def validate_login(username: str, password: str) -> dict[str, str]:
         pass_max_err = validate_max_length(password, MAX_PASSWORD_LENGTH, "La contrasena")
         if pass_max_err:
             errors["password"] = pass_max_err
+        if (
+            not errors.get("password")
+            and not errors.get("username")
+            and password.lower() == username_stripped.lower()
+        ):
+            errors["password"] = "La contrasena no puede ser igual al nombre de usuario."
         if not errors.get("password") and password.lower() in COMMON_PASSWORDS:
             errors["password"] = "La contrasena es demasiado comun. Elige una mas segura."
         if not errors.get("password") and password.isalpha():
             errors["password"] = "La contrasena debe contener al menos un caracter no alfabetico."
 
-    if not errors.get("password") and not errors.get("username") and password.lower() == username_stripped.lower():
-        errors["password"] = "La contrasena no puede ser igual al nombre de usuario."
-
     return errors
 
 
+def normalize_local_url(target: str | None) -> str | None:
+    if not target:
+        return None
+
+    parts = urlsplit(target)
+    if parts.scheme or parts.netloc:
+        if parts.scheme and parts.netloc and parts.netloc == request.host:
+            path = parts.path or "/"
+            if path.startswith("//") or not path.startswith("/"):
+                return None
+            if parts.query:
+                return f"{path}?{parts.query}"
+            return path
+        return None
+
+    if target.startswith("//") or not target.startswith("/"):
+        return None
+
+    return target
+
+
 def resolve_next_url() -> str:
-    next_url = request.args.get("next") or request.form.get("next")
-    if next_url and next_url.startswith("/"):
+    next_url = normalize_local_url(request.args.get("next") or request.form.get("next"))
+    if next_url:
         return next_url
     return url_for("listar_incidencias")
 
@@ -456,7 +482,11 @@ def register_routes(app: Flask) -> None:
     def protect_post_requests() -> Any | None:
         if request.method == "POST" and not is_csrf_valid():
             flash("La sesion del formulario expiro. Intenta nuevamente.", "error")
-            return redirect(request.referrer or request.path or url_for("login"))
+            safe_referrer = normalize_local_url(request.referrer)
+            if safe_referrer:
+                return redirect(safe_referrer)
+            fallback = url_for("listar_incidencias") if get_current_user() else url_for("login")
+            return redirect(fallback)
 
     @app.get("/favicon.ico")
     def favicon() -> Any:
@@ -613,9 +643,7 @@ def register_routes(app: Flask) -> None:
         return render_template("detail.html", incidencia=incidencia)
 
 
-app = create_app()
-
-
 if __name__ == "__main__":
+    app = create_app()
     init_db(app)
     app.run(debug=True, port=8080)
