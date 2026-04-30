@@ -1,0 +1,42 @@
+{% extends 'base.html' %}
+
+{% block title %}Crear usuario{% endblock %}
+
+{% block content %}
+<section class="panel login-panel">
+    <div class="panel__header panel__header--stacked">
+        <div>
+            <p class="section-label">Registro</p>
+            <h2>Crear usuario</h2>
+        </div>
+        <p class="login-hint">Completa los datos para crear tu cuenta.</p>
+    </div>
+
+    <form class="form-grid login-card" method="post" action="{{ url_for('registro') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+
+        <label class="full-width">
+            <span>Nombre completo</span>
+            <input type="text" name="nombre_completo" value="{{ form_data['nombre_completo'] }}" placeholder="Ej. Maria Perez" required maxlength="120">
+            {% if errors.get('nombre_completo') %}<small>{{ errors['nombre_completo'] }}</small>{% endif %}
+        </label>
+
+        <label>
+            <span>Usuario</span>
+            <input type="text" name="username" value="{{ form_data['username'] }}" placeholder="usuario" required maxlength="50">
+            {% if errors.get('username') %}<small>{{ errors['username'] }}</small>{% endif %}
+        </label>
+
+        <label>
+            <span>Contrasena</span>
+            <input type="password" name="password" placeholder="Crea una contrasena" required>
+            {% if errors.get('password') %}<small>{{ errors['password'] }}</small>{% endif %}
+        </label>
+
+        <div class="form-actions full-width">
+            <button class="button button--primary" type="submit">Crear cuenta</button>
+            <a class="button button--ghost" href="{{ url_for('login') }}">Volver a iniciar sesion</a>
+        </div>
+    </form>
+</section>
+{% endblock %}

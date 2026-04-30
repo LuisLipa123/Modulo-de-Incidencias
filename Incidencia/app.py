@@ -172,18 +172,34 @@ def login_required(view: ViewFunc) -> ViewFunc:
     return wrapped_view
 
 
+def create_user(username: str, password: str, nombre_completo: str) -> Usuario:
+    user = Usuario(
+        username=username,
+        nombre_completo=nombre_completo,
+        password_hash=generate_password_hash(password),
+    )
+    db.session.add(user)
+    return user
+
+
+def authenticate_user(username: str, password: str) -> Usuario | None:
+    user = Usuario.query.filter_by(username=username).first()
+    if user is None or not check_password_hash(user.password_hash, password):
+        return None
+    return user
+
+
 def ensure_default_user(app: Flask) -> None:
     admin_username = app.config["DEFAULT_ADMIN_USERNAME"]
     existing_user = Usuario.query.filter_by(username=admin_username).first()
     if existing_user is not None:
         return
 
-    user = Usuario(
-        username=admin_username,
-        nombre_completo=app.config["DEFAULT_ADMIN_NAME"],
-        password_hash=generate_password_hash(app.config["DEFAULT_ADMIN_PASSWORD"]),
+    create_user(
+        admin_username,
+        app.config["DEFAULT_ADMIN_PASSWORD"],
+        app.config["DEFAULT_ADMIN_NAME"],
     )
-    db.session.add(user)
     db.session.commit()
 
 
@@ -449,6 +465,31 @@ def validate_login(username: str, password: str) -> dict[str, str]:
     return errors
 
 
+def validate_nombre_completo(nombre: str) -> str | None:
+    nombre_stripped = nombre.strip()
+    if not nombre_stripped:
+        return "El nombre completo es obligatorio."
+
+    min_err = validate_min_length(nombre_stripped, MIN_RESPONSABLE_LENGTH, "El nombre completo")
+    if min_err:
+        return min_err
+
+    max_err = validate_max_length(nombre_stripped, MAX_RESPONSABLE_LENGTH, "El nombre completo")
+    if max_err:
+        return max_err
+
+    if CONTROL_CHARS_RE.search(nombre_stripped):
+        return "El nombre completo no puede contener tabulaciones ni saltos de linea."
+
+    if HTML_ANGLE_RE.search(nombre_stripped):
+        return "El nombre completo no puede contener los caracteres '<' ni '>'."
+
+    if CONSECUTIVE_SPACES_RE.search(nombre_stripped):
+        return "El nombre completo no puede contener espacios consecutivos."
+
+    return None
+
+
 def normalize_local_url(target: str | None) -> str | None:
     if not target:
         return None
@@ -510,8 +551,8 @@ def register_routes(app: Flask) -> None:
         if request.method == "POST":
             errors = validate_login(username, password)
             if not errors:
-                user = Usuario.query.filter_by(username=username).first()
-                if user is None or not check_password_hash(user.password_hash, password):
+                user = authenticate_user(username, password)
+                if user is None:
                     errors["general"] = "Credenciales invalidas."
                 else:
                     session.clear()
@@ -525,6 +566,44 @@ def register_routes(app: Flask) -> None:
             username=username,
             errors=errors,
             next_url=request.args.get("next", ""),
+        )
+
+    @app.route("/registro", methods=["GET", "POST"])
+    def registro() -> str | Any:
+        if get_current_user() is not None:
+            return redirect(url_for("listar_incidencias"))
+
+        form_data = {"username": "", "nombre_completo": ""}
+        errors: dict[str, str] = {}
+
+        if request.method == "POST":
+            username = request.form.get("username", "").strip()
+            password = request.form.get("password", "")
+            nombre_completo = request.form.get("nombre_completo", "").strip()
+            form_data = {"username": username, "nombre_completo": nombre_completo}
+
+            errors = validate_login(username, password)
+            nombre_error = validate_nombre_completo(nombre_completo)
+            if nombre_error:
+                errors["nombre_completo"] = nombre_error
+
+            if not errors:
+                existing = Usuario.query.filter_by(username=username).first()
+                if existing is not None:
+                    errors["username"] = "El usuario ya existe."
+
+            if not errors:
+                create_user(username, password, nombre_completo)
+                if commit_with_handling(
+                    "Usuario creado correctamente. Inicia sesion.",
+                    "No se pudo crear el usuario. Intenta nuevamente.",
+                ):
+                    return redirect(url_for("login"))
+
+        return render_template(
+            "register.html",
+            form_data=form_data,
+            errors=errors,
         )
 
     @app.post("/logout")

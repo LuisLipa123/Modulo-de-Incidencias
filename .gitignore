@@ -13,6 +13,7 @@ coverage.xml
 htmlcov/
 nosetests.xml
 junit*.xml
+manual.txt
 
 # Python bytecode
 __pycache__/

@@ -32,13 +32,9 @@
             {% if errors.get('password') %}<small>{{ errors['password'] }}</small>{% endif %}
         </label>
 
-        <div class="full-width empty-state">
-            <strong>Credenciales iniciales</strong>
-            <p>Usuario: admin | Contrasena: admin123</p>
-        </div>
-
         <div class="form-actions full-width">
             <button class="button button--primary" type="submit">Entrar</button>
+            <a class="button button--ghost" href="{{ url_for('registro') }}">Crear cuenta</a>
         </div>
     </form>
 </section>
