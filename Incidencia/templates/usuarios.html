@@ -1,0 +1,85 @@
+{% extends 'base.html' %}
+
+{% block title %}Gestion de usuarios{% endblock %}
+
+{% block content %}
+<section class="panel panel--spaced">
+    <div class="panel__header">
+        <div>
+            <p class="section-label">Administracion</p>
+            <h2>Usuarios del sistema</h2>
+        </div>
+        <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
+            <a class="button button--ghost-light" href="{{ url_for('listar_sucursales') }}">Gestionar sucursales</a>
+            <form method="post" action="{{ url_for('hacer_backup') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <button class="button button--ghost" type="submit">Backup DB</button>
+            </form>
+        </div>
+    </div>
+
+    {% if usuarios %}
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Nombre completo</th>
+                        <th>Usuario</th>
+                        <th>Rol</th>
+                        <th>Sucursal</th>
+                        <th>Estado</th>
+                        <th>Registro</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for usuario in usuarios %}
+                        <tr>
+                            <td>{{ usuario.nombre_completo }}</td>
+                            <td>{{ usuario.username }}</td>
+                            <td>{{ usuario.rol }}</td>
+                            <td>{{ usuario.sucursal.nombre if usuario.sucursal else '—' }}</td>
+                            <td>
+                                {% if usuario.activo %}
+                                    <span class="badge" style="background:#d1fae5;color:#065f46;">Activo</span>
+                                {% else %}
+                                    <span class="badge" style="background:#fee2e2;color:#991b1b;">Pendiente</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ usuario.fecha_creacion.strftime('%Y-%m-%d') }}</td>
+                            <td class="actions" style="display:flex;flex-wrap:wrap;gap:.5rem;">
+                                <form method="post" action="{{ url_for('cambiar_activo', usuario_id=usuario.id) }}">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                                    <button class="button button--ghost" type="submit">
+                                        {{ 'Desactivar' if usuario.activo else 'Activar' }}
+                                    </button>
+                                </form>
+
+                                <form method="post" action="{{ url_for('cambiar_rol', usuario_id=usuario.id) }}" style="display:inline-flex;gap:.3rem;align-items:center;">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                                    <select name="rol">
+                                        {% for rol in roles %}
+                                            <option value="{{ rol }}" {% if usuario.rol == rol %}selected{% endif %}>{{ rol }}</option>
+                                        {% endfor %}
+                                    </select>
+                                    <button class="button button--ghost" type="submit">Cambiar rol</button>
+                                </form>
+
+                                <form method="post" action="{{ url_for('resetear_contrasena', usuario_id=usuario.id) }}" style="display:inline-flex;gap:.3rem;align-items:center;">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                                    <input type="password" name="nueva_contrasena" placeholder="Nueva contrasena" required minlength="8" maxlength="128" style="width:160px;">
+                                    <button class="button button--ghost" type="submit">Resetear</button>
+                                </form>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <div class="empty-state">
+            <h3>No hay usuarios registrados</h3>
+        </div>
+    {% endif %}
+</section>
+{% endblock %}

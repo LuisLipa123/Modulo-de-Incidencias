@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mantenimiento &mdash; Modulo de incidencias</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <main class="layout" style="display:flex;align-items:center;justify-content:center;min-height:100vh;">
+        <section class="panel login-panel" style="text-align:center;max-width:480px;">
+            <div class="panel__header panel__header--stacked">
+                <p class="section-label">Sistema</p>
+                <h2>Mantenimiento programado</h2>
+            </div>
+            <p style="color:#6b7280;margin-bottom:1.5rem;">
+                El sistema se encuentra temporalmente fuera de servicio por tareas de mantenimiento.
+                Por favor, vuelve a intentarlo en unos minutos.
+            </p>
+            <p style="color:#9ca3af;font-size:.875rem;">Si el problema persiste, contacta al administrador del sistema.</p>
+        </section>
+    </main>
+</body>
+</html>

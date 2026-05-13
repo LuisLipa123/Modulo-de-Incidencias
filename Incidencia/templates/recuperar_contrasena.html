@@ -1,0 +1,19 @@
+{% extends 'base.html' %}
+
+{% block title %}Recuperar contrasena{% endblock %}
+
+{% block content %}
+<section class="panel login-panel">
+    <div class="panel__header panel__header--stacked">
+        <div>
+            <p class="section-label">Acceso</p>
+            <h2>Recuperar contrasena</h2>
+        </div>
+        <a class="button button--ghost" href="{{ url_for('login') }}">Volver al login</a>
+    </div>
+    <div class="empty-state">
+        <h3>Contacta a un administrador</h3>
+        <p>Para restablecer tu contrasena, comunicate con el administrador del sistema. El administrador puede gestionar y resetear contrasenas desde el panel de <strong>Usuarios</strong>.</p>
+    </div>
+</section>
+{% endblock %}

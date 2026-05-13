@@ -1,0 +1,57 @@
+{% extends 'base.html' %}
+
+{% block title %}Sucursales{% endblock %}
+
+{% block content %}
+<section class="panel panel--spaced">
+    <div class="panel__header">
+        <div>
+            <p class="section-label">Administracion</p>
+            <h2>Sucursales</h2>
+        </div>
+        <a class="button button--ghost-light" href="{{ url_for('listar_usuarios') }}">Volver a usuarios</a>
+    </div>
+
+    <form class="form-grid" method="post" action="{{ url_for('crear_sucursal') }}" style="margin-bottom:1.5rem;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <label>
+            <span>Nombre</span>
+            <input type="text" name="nombre" placeholder="Ej. Sede Lima Norte" required maxlength="100">
+        </label>
+        <label>
+            <span>Codigo</span>
+            <input type="text" name="codigo" placeholder="Ej. LIM-02" required maxlength="20">
+        </label>
+        <div class="form-actions full-width">
+            <button class="button button--primary" type="submit">Agregar sucursal</button>
+        </div>
+    </form>
+
+    {% if sucursales %}
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Nombre</th>
+                        <th>Codigo</th>
+                        <th>Estado</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for s in sucursales %}
+                        <tr>
+                            <td>{{ s.nombre }}</td>
+                            <td>{{ s.codigo }}</td>
+                            <td>{{ 'Activa' if s.activa else 'Inactiva' }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <div class="empty-state">
+            <h3>No hay sucursales registradas</h3>
+        </div>
+    {% endif %}
+</section>
+{% endblock %}

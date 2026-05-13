@@ -14,10 +14,13 @@ htmlcov/
 nosetests.xml
 junit*.xml
 manual.txt
-
+informe_*
+proof/
+correciones/
 # Python bytecode
 __pycache__/
 *.pyc
+.claude/
 
 # Tests (no compartir en produccion)
 Incidencia/tests/

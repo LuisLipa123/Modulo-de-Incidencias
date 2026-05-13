@@ -21,16 +21,52 @@
             {% if errors.get('titulo') %}<small>{{ errors['titulo'] }}</small>{% endif %}
         </label>
 
+        <label>
+            <span>Tipo</span>
+            <select name="tipo">
+                {% for tipo in tipos %}
+                    <option value="{{ tipo }}" {% if incidencia['tipo'] == tipo %}selected{% endif %}>{{ tipo }}</option>
+                {% endfor %}
+            </select>
+            {% if errors.get('tipo') %}<small>{{ errors['tipo'] }}</small>{% endif %}
+        </label>
+
         <label class="full-width">
             <span>Descripcion</span>
-            <textarea name="descripcion" rows="5" placeholder="Describe la incidencia" required minlength="10" maxlength="2000">{{ incidencia['descripcion'] }}</textarea>
+            <textarea name="descripcion" rows="4" placeholder="Describe la incidencia" required minlength="10" maxlength="2000">{{ incidencia['descripcion'] }}</textarea>
             {% if errors.get('descripcion') %}<small>{{ errors['descripcion'] }}</small>{% endif %}
+        </label>
+
+        <label class="full-width">
+            <span>Solucion <small style="font-weight:normal">(requerida en estado Resuelta o Cerrada)</small></span>
+            <textarea name="solucion" rows="3" placeholder="Describe la solucion aplicada" maxlength="2000">{{ incidencia['solucion'] }}</textarea>
+            {% if errors.get('solucion') %}<small>{{ errors['solucion'] }}</small>{% endif %}
         </label>
 
         <label>
             <span>Responsable</span>
-            <input type="text" name="responsable" value="{{ incidencia['responsable'] }}" placeholder="Nombre del responsable" required minlength="3" maxlength="120" pattern="[A-Za-z0-9][A-Za-z0-9 ._-]*">
-            {% if errors.get('responsable') %}<small>{{ errors['responsable'] }}</small>{% endif %}
+            <select name="responsable_id">
+                <option value="">-- Seleccionar responsable --</option>
+                {% for tecnico in tecnicos %}
+                    <option value="{{ tecnico.id }}" {% if incidencia['responsable_id'] == tecnico.id|string %}selected{% endif %}>
+                        {{ tecnico.nombre_completo }} ({{ tecnico.rol }})
+                    </option>
+                {% endfor %}
+            </select>
+            {% if errors.get('responsable_id') %}<small>{{ errors['responsable_id'] }}</small>{% endif %}
+        </label>
+
+        <label>
+            <span>Sucursal <small style="font-weight:normal">(opcional)</small></span>
+            <select name="sucursal_id">
+                <option value="">-- Sin sucursal --</option>
+                {% for s in sucursales %}
+                    <option value="{{ s.id }}" {% if incidencia['sucursal_id'] == s.id|string %}selected{% endif %}>
+                        {{ s.nombre }} ({{ s.codigo }})
+                    </option>
+                {% endfor %}
+            </select>
+            {% if errors.get('sucursal_id') %}<small>{{ errors['sucursal_id'] }}</small>{% endif %}
         </label>
 
         <label>

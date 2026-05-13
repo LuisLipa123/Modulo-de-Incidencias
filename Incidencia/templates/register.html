@@ -12,12 +12,16 @@
         <p class="login-hint">Completa los datos para crear tu cuenta.</p>
     </div>
 
+    <div class="flash flash--info full-width" style="margin-bottom:1rem;padding:.75rem 1rem;border-radius:.5rem;background:#fef3c7;color:#92400e;">
+        Tu cuenta quedara pendiente de aprobacion hasta que un administrador la active.
+    </div>
+
     <form class="form-grid login-card" method="post" action="{{ url_for('registro') }}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
 
         <label class="full-width">
             <span>Nombre completo</span>
-            <input type="text" name="nombre_completo" value="{{ form_data['nombre_completo'] }}" placeholder="Ej. Maria Perez" required maxlength="120">
+            <input type="text" name="nombre_completo" value="{{ form_data['nombre_completo'] }}" placeholder="Ej. Maria Perez" required maxlength="200">
             {% if errors.get('nombre_completo') %}<small>{{ errors['nombre_completo'] }}</small>{% endif %}
         </label>
 
@@ -29,8 +33,15 @@
 
         <label>
             <span>Contrasena</span>
-            <input type="password" name="password" placeholder="Crea una contrasena" required>
+            <input type="password" name="password" placeholder="Crea una contrasena segura" required>
             {% if errors.get('password') %}<small>{{ errors['password'] }}</small>{% endif %}
+            <small style="color:#6b7280;">Debe incluir mayuscula, minuscula, digito y caracter especial.</small>
+        </label>
+
+        <label>
+            <span>Confirmar contrasena</span>
+            <input type="password" name="confirmar_contrasena" placeholder="Repite la contrasena" required>
+            {% if errors.get('confirmar_contrasena') %}<small>{{ errors['confirmar_contrasena'] }}</small>{% endif %}
         </label>
 
         <div class="form-actions full-width">

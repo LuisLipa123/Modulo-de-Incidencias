@@ -1,0 +1,39 @@
+ * Serving Flask app 'app'
+ * Debug mode: off
+[31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on http://127.0.0.1:8080
+[33mPress CTRL+C to quit[0m
+127.0.0.1 - - [07/May/2026 14:09:59] "[32mGET / HTTP/1.1[0m" 302 -
+127.0.0.1 - - [07/May/2026 14:10:00] "[32mGET / HTTP/1.1[0m" 302 -
+127.0.0.1 - - [07/May/2026 14:10:00] "GET /login HTTP/1.1" 200 -
+127.0.0.1 - - [07/May/2026 14:10:00] "GET /static/styles.css HTTP/1.1" 200 -
+127.0.0.1 - - [07/May/2026 14:10:00] "GET /static/favicon.svg HTTP/1.1" 200 -
+127.0.0.1 - - [07/May/2026 14:10:07] "GET /registro HTTP/1.1" 200 -
+127.0.0.1 - - [07/May/2026 14:10:07] "[36mGET /static/styles.css HTTP/1.1[0m" 304 -
+127.0.0.1 - - [07/May/2026 14:10:17] "POST /registro HTTP/1.1" 200 -
+127.0.0.1 - - [07/May/2026 14:10:17] "[36mGET /static/styles.css HTTP/1.1[0m" 304 -
+127.0.0.1 - - [07/May/2026 14:10:26] "POST /registro HTTP/1.1" 200 -
+127.0.0.1 - - [07/May/2026 14:10:26] "[36mGET /static/styles.css HTTP/1.1[0m" 304 -
+127.0.0.1 - - [07/May/2026 14:10:32] "POST /registro HTTP/1.1" 200 -
+127.0.0.1 - - [07/May/2026 14:10:32] "[36mGET /static/styles.css HTTP/1.1[0m" 304 -
+127.0.0.1 - - [07/May/2026 14:10:41] "GET /login HTTP/1.1" 200 -
+127.0.0.1 - - [07/May/2026 14:10:41] "[36mGET /static/styles.css HTTP/1.1[0m" 304 -
+127.0.0.1 - - [07/May/2026 14:10:48] "POST /login?next= HTTP/1.1" 200 -
+127.0.0.1 - - [07/May/2026 14:10:48] "[36mGET /static/styles.css HTTP/1.1[0m" 304 -
+127.0.0.1 - - [07/May/2026 14:10:50] "GET /registro HTTP/1.1" 200 -
+127.0.0.1 - - [07/May/2026 14:10:50] "[36mGET /static/styles.css HTTP/1.1[0m" 304 -
+127.0.0.1 - - [07/May/2026 14:11:02] "[32mPOST /registro HTTP/1.1[0m" 302 -
+127.0.0.1 - - [07/May/2026 14:11:02] "GET /login HTTP/1.1" 200 -
+127.0.0.1 - - [07/May/2026 14:11:02] "[36mGET /static/styles.css HTTP/1.1[0m" 304 -
+127.0.0.1 - - [07/May/2026 14:11:10] "[32mPOST /login?next= HTTP/1.1[0m" 302 -
+127.0.0.1 - - [07/May/2026 14:11:10] "GET /incidencias HTTP/1.1" 200 -
+127.0.0.1 - - [07/May/2026 14:11:10] "[36mGET /static/styles.css HTTP/1.1[0m" 304 -
+127.0.0.1 - - [07/May/2026 14:11:12] "[32mPOST /logout HTTP/1.1[0m" 302 -
+127.0.0.1 - - [07/May/2026 14:11:12] "GET /login HTTP/1.1" 200 -
+127.0.0.1 - - [07/May/2026 14:11:12] "[36mGET /static/styles.css HTTP/1.1[0m" 304 -
+127.0.0.1 - - [07/May/2026 14:17:05] "POST /login?next= HTTP/1.1" 200 -
+127.0.0.1 - - [07/May/2026 14:17:05] "[36mGET /static/styles.css HTTP/1.1[0m" 304 -
+127.0.0.1 - - [07/May/2026 14:17:16] "POST /login?next= HTTP/1.1" 200 -
+127.0.0.1 - - [07/May/2026 14:17:16] "[36mGET /static/styles.css HTTP/1.1[0m" 304 -
+127.0.0.1 - - [07/May/2026 14:17:22] "POST /login?next= HTTP/1.1" 200 -
+127.0.0.1 - - [07/May/2026 14:17:22] "[36mGET /static/styles.css HTTP/1.1[0m" 304 -

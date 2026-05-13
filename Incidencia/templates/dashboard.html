@@ -1,0 +1,80 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<section class="panel panel--spaced">
+    <div class="panel__header">
+        <div>
+            <p class="section-label">Administracion</p>
+            <h2>Dashboard</h2>
+        </div>
+        <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
+            <a class="button button--ghost" href="{{ url_for('exportar_incidencias_csv') }}">Exportar CSV</a>
+            <form method="post" action="{{ url_for('hacer_backup') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <button class="button button--ghost" type="submit">Crear backup</button>
+            </form>
+        </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:1rem;margin-bottom:2rem;">
+        <div class="panel" style="padding:1.25rem;text-align:center;">
+            <p style="font-size:2.5rem;font-weight:700;margin:0;">{{ total }}</p>
+            <p style="color:#6b7280;margin:.25rem 0 0;">Total incidencias</p>
+        </div>
+        <div class="panel" style="padding:1.25rem;text-align:center;">
+            <p style="font-size:2.5rem;font-weight:700;margin:0;">{{ total_usuarios }}</p>
+            <p style="color:#6b7280;margin:.25rem 0 0;">Usuarios</p>
+        </div>
+        {% if criticas_abiertas > 0 %}
+        <div class="panel" style="padding:1.25rem;text-align:center;background:#fee2e2;">
+            <p style="font-size:2.5rem;font-weight:700;margin:0;color:#991b1b;">{{ criticas_abiertas }}</p>
+            <p style="color:#991b1b;margin:.25rem 0 0;">Criticas abiertas</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;">
+        <div>
+            <h3 style="margin-bottom:.75rem;">Por estado</h3>
+            <table>
+                <thead>
+                    <tr><th>Estado</th><th>Cantidad</th></tr>
+                </thead>
+                <tbody>
+                    {% for estado, cantidad in por_estado.items() %}
+                    <tr>
+                        <td><span class="badge">{{ estado }}</span></td>
+                        <td>{{ cantidad }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div>
+            <h3 style="margin-bottom:.75rem;">Por prioridad</h3>
+            <table>
+                <thead>
+                    <tr><th>Prioridad</th><th>Cantidad</th></tr>
+                </thead>
+                <tbody>
+                    {% for prioridad, cantidad in por_prioridad.items() %}
+                    <tr>
+                        <td>
+                            {% if prioridad == 'Critica' %}
+                                <span class="badge" style="background:#fee2e2;color:#991b1b;font-weight:700;">Critica</span>
+                            {% else %}
+                                {{ prioridad }}
+                            {% endif %}
+                        </td>
+                        <td>{{ cantidad }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</section>
+{% endblock %}
