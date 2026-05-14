@@ -90,7 +90,6 @@ def build_database_url() -> str:
     )
 
 
-# BUG-050: tabla independiente de roles
 class Rol(db.Model):
     __tablename__ = "roles"
 
@@ -101,7 +100,6 @@ class Rol(db.Model):
     usuarios: Mapped[list["Usuario"]] = relationship("Usuario", back_populates="rol_obj", lazy="select")
 
 
-# BUG-121: tabla de sucursales
 class Sucursal(db.Model):
     __tablename__ = "sucursales"
 
@@ -111,7 +109,6 @@ class Sucursal(db.Model):
     activa: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
 
-# BUG-109: auditoría de intentos de inicio de sesión
 class AuditoriaLogin(db.Model):
     __tablename__ = "auditoria_logins"
 
@@ -132,11 +129,8 @@ class Usuario(db.Model):
     username: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     nombre_completo: Mapped[str] = mapped_column(String(200), nullable=False)
-    # BUG-050: FK a tabla roles
     rol_id: Mapped[int] = mapped_column(ForeignKey("roles.id"), nullable=False)
-    # BUG-032: campo activo para habilitar/deshabilitar usuarios
     activo: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-    # BUG-121: FK a sucursal
     sucursal_id: Mapped[int | None] = mapped_column(ForeignKey("sucursales.id"), nullable=True)
     fecha_creacion: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
@@ -152,7 +146,6 @@ class Usuario(db.Model):
 
 class Incidencia(db.Model):
     __tablename__ = "incidencias"
-    # BUG-046 / BUG-117: restricciones CHECK en base de datos
     __table_args__ = (
         CheckConstraint(
             "estado IN ('Abierta', 'En progreso', 'Resuelta', 'Cerrada')",
@@ -176,20 +169,16 @@ class Incidencia(db.Model):
     responsable_id: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"), nullable=True)
     estado: Mapped[str] = mapped_column(String(30), nullable=False, index=True)
     prioridad: Mapped[str] = mapped_column(String(30), nullable=False, index=True)
-    # BUG-091: campo solución requerido para Resuelta/Cerrada
     solucion: Mapped[str | None] = mapped_column(Text, nullable=True)
     usuario_reportante_id: Mapped[int] = mapped_column(ForeignKey("usuarios.id"), nullable=False)
-    # BUG-121: FK a sucursal
     sucursal_id: Mapped[int | None] = mapped_column(ForeignKey("sucursales.id"), nullable=True)
     eliminado: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     fecha_creacion: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False, index=True
     )
-    # BUG-033: fecha de última actualización
     fecha_actualizacion: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
     )
-    # BUG-034: fecha de cierre (solo cuando estado = Cerrada)
     fecha_cierre: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     responsable_user: Mapped["Usuario | None"] = relationship(
@@ -227,7 +216,6 @@ class HistorialCambio(db.Model):
 def create_app(test_config: dict[str, Any] | None = None) -> Flask:
     app = Flask(__name__)
 
-    # BUG-037: secret key sin valor hardcodeado
     _secret = os.getenv("SECRET_KEY")
     if not _secret:
         _secret = secrets.token_hex(32)
@@ -245,9 +233,7 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
         DEFAULT_ADMIN_USERNAME=os.getenv("DEFAULT_ADMIN_USERNAME", "admin"),
         DEFAULT_ADMIN_PASSWORD=os.getenv("DEFAULT_ADMIN_PASSWORD", "Admin@2025!"),
         DEFAULT_ADMIN_NAME=os.getenv("DEFAULT_ADMIN_NAME", "Administrador General"),
-        # BUG-189: sesiones con tiempo de vida definido
         PERMANENT_SESSION_LIFETIME=timedelta(hours=8),
-        # BUG-190: cookies seguras
         SESSION_COOKIE_HTTPONLY=True,
         SESSION_COOKIE_SAMESITE="Lax",
         SESSION_COOKIE_SECURE=os.getenv("SESSION_COOKIE_SECURE", "0") == "1",
@@ -307,7 +293,7 @@ def login_required(view: ViewFunc) -> ViewFunc:
             flash("Inicia sesion para continuar.", "error")
             return redirect(url_for("login", next=request.path))
         return view(*args, **kwargs)
-    return wrapped_view  # type: ignore[return-value]
+    return wrapped_view
 
 
 def admin_required(view: ViewFunc) -> ViewFunc:
@@ -321,7 +307,7 @@ def admin_required(view: ViewFunc) -> ViewFunc:
             flash("No tienes permisos para realizar esta accion.", "error")
             return redirect(url_for("listar_incidencias"))
         return view(*args, **kwargs)
-    return wrapped_view  # type: ignore[return-value]
+    return wrapped_view
 
 
 def create_user(
@@ -350,7 +336,6 @@ _DUMMY_HASH = generate_password_hash("dummy-timing-protection-hash")
 
 def authenticate_user(username: str, password: str) -> Usuario | None:
     user = Usuario.query.filter_by(username=username).first()
-    # BUG-187: comparar siempre un hash para evitar timing attacks
     candidate_hash = user.password_hash if user else _DUMMY_HASH
     if not check_password_hash(candidate_hash, password) or user is None:
         return None
@@ -460,7 +445,6 @@ def validate_min_length(value: str, min_length: int, field_label: str) -> str | 
     return None
 
 
-# BUG-104: política de contraseña robusta (para registro y reseteo)
 def validate_password_strength(password: str) -> str | None:
     if not re.search(r"[A-Z]", password):
         return "La contrasena debe contener al menos una letra mayuscula."
@@ -518,7 +502,6 @@ def validate_incidencia(form_data: dict[str, str]) -> dict[str, str]:
     if form_data["estado"] == "Cerrada" and "descripcion" not in errors and len(descripcion) < 20:
         errors["descripcion"] = "La descripcion debe documentar el cierre con al menos 20 caracteres."
 
-    # BUG-091: solución requerida en estados Resuelta y Cerrada
     if form_data["estado"] in ("Resuelta", "Cerrada") and "solucion" not in errors:
         if not solucion or len(solucion) < MIN_SOLUCION_LENGTH:
             errors["solucion"] = (
@@ -705,7 +688,6 @@ def validate_nombre_completo(nombre: str) -> str | None:
     if min_err:
         return min_err
 
-    # BUG-052: límite ampliado para nombres largos reales
     max_err = validate_max_length(nombre_stripped, MAX_NOMBRE_COMPLETO_LENGTH, "El nombre completo")
     if max_err:
         return max_err
@@ -763,7 +745,6 @@ def _validate_responsable_id(responsable_id_str: str) -> str | None:
 
 
 def _validate_sucursal_id(sucursal_id_str: str) -> str | None:
-    # BUG-179: validación backend de sucursal independiente del frontend
     if not sucursal_id_str:
         return None
     try:
@@ -776,7 +757,6 @@ def _validate_sucursal_id(sucursal_id_str: str) -> str | None:
 
 
 def _can_edit_incidencia(incidencia: Incidencia, current_user: Usuario) -> bool:
-    """BUG-100/101: solo el creador, el responsable asignado o un admin pueden editar."""
     if current_user.rol == "Administrador":
         return True
     if incidencia.usuario_reportante_id == current_user.id:
@@ -787,7 +767,6 @@ def _can_edit_incidencia(incidencia: Incidencia, current_user: Usuario) -> bool:
 
 
 def backup_db() -> str | None:
-    # BUG-238/240: backup de base de datos SQLite con validacion de tamaño
     db_url = str(db.engine.url)
     if not db_url.startswith("sqlite"):
         return None
@@ -806,7 +785,6 @@ def backup_db() -> str | None:
 def register_routes(app: Flask) -> None:
     @app.before_request
     def check_maintenance_mode() -> Any | None:
-        # BUG-285: modo mantenimiento controlado por variable de entorno
         if os.getenv("MAINTENANCE_MODE", "0") == "1":
             exempt = {"static", "favicon", "login", "mantenimiento"}
             if request.endpoint not in exempt:
@@ -850,12 +828,11 @@ def register_routes(app: Flask) -> None:
                     errors["general"] = "Credenciales invalidas."
                     _register_login_audit(username, exitoso=False)
                 elif not user.activo:
-                    # BUG-032 / BUG-102: cuenta pendiente de aprobación
                     errors["general"] = "Tu cuenta esta pendiente de aprobacion por un administrador."
                     _register_login_audit(username, exitoso=False)
                 else:
                     session.clear()
-                    session.permanent = True  # BUG-189: sesion con TTL definido
+                    session.permanent = True
                     session["user_id"] = user.id
                     session["csrf_token"] = secrets.token_urlsafe(32)
                     _register_login_audit(username, exitoso=True)
@@ -886,13 +863,11 @@ def register_routes(app: Flask) -> None:
 
             errors = validate_login(username, password)
 
-            # BUG-104: política de contraseña fuerte al registrarse
             if not errors.get("password"):
                 strength_err = validate_password_strength(password)
                 if strength_err:
                     errors["password"] = strength_err
 
-            # BUG-105: confirmar contraseña
             if not errors.get("password") and password != confirmar:
                 errors["confirmar_contrasena"] = "Las contrasenas no coinciden."
 
@@ -906,7 +881,6 @@ def register_routes(app: Flask) -> None:
                     errors["username"] = "El usuario ya existe."
 
             if not errors:
-                # BUG-102: cuentas nuevas inactivas hasta aprobación del admin
                 create_user(username, password, nombre_completo, rol="Operador", activo=False)
                 if commit_with_handling(
                     "Cuenta creada. Un administrador debe aprobarla antes de que puedas iniciar sesion.",
@@ -918,7 +892,6 @@ def register_routes(app: Flask) -> None:
 
     @app.post("/logout")
     def logout() -> Any:
-        # BUG-184: registrar evento de cierre de sesion
         user = get_current_user()
         if user:
             _register_login_audit(user.username, exitoso=True, accion="logout")
@@ -933,7 +906,6 @@ def register_routes(app: Flask) -> None:
     @app.route("/incidencias")
     @login_required
     def listar_incidencias() -> str:
-        # BUG-122 / BUG-123: paginación para evitar queries masivas
         page = request.args.get("page", 1, type=int)
         per_page = 20
         paginacion = (
@@ -968,7 +940,6 @@ def register_routes(app: Flask) -> None:
             if suc_err:
                 errors["sucursal_id"] = suc_err
 
-            # BUG-095 / BUG-096: sin duplicados en estados activos
             if not errors:
                 existing = Incidencia.query.filter(
                     Incidencia.titulo == form_data["titulo"],
@@ -981,7 +952,6 @@ def register_routes(app: Flask) -> None:
                         f"(estado: {existing.estado})."
                     )
 
-            # BUG-230: limite de incidencias activas por usuario
             if not errors:
                 _cur = get_current_user()
                 activas = Incidencia.query.filter(
@@ -1053,7 +1023,6 @@ def register_routes(app: Flask) -> None:
             flash("Las incidencias cerradas no pueden ser modificadas.", "error")
             return redirect(url_for("listar_incidencias"))
 
-        # BUG-100 / BUG-101: solo creador, responsable o admin pueden editar
         current_user = get_current_user()
         if not _can_edit_incidencia(incidencia, current_user):
             flash("No tienes permisos para editar esta incidencia.", "error")
@@ -1094,9 +1063,7 @@ def register_routes(app: Flask) -> None:
                 incidencia.solucion = form_data["solucion"] or None
                 incidencia.sucursal_id = int(form_data["sucursal_id"]) if form_data.get("sucursal_id") else None
                 incidencia.estado = form_data["estado"]
-                # BUG-033: actualizar fecha_actualizacion
                 incidencia.fecha_actualizacion = datetime.now(timezone.utc)
-                # BUG-034 / BUG-092: registrar fecha_cierre al cerrar
                 if form_data["estado"] == "Cerrada" and old_data["estado"] != "Cerrada":
                     incidencia.fecha_cierre = datetime.now(timezone.utc)
                 registrar_cambios(incidencia.id, old_data, form_data, current_user.id)
@@ -1134,7 +1101,6 @@ def register_routes(app: Flask) -> None:
             flash("No se puede eliminar una incidencia critica que sigue abierta.", "error")
             return redirect(url_for("listar_incidencias"))
 
-        # BUG-093: no se pueden borrar incidencias ya cerradas
         if incidencia.estado == "Cerrada":
             flash("No se puede eliminar una incidencia en estado Cerrada.", "error")
             return redirect(url_for("listar_incidencias"))
@@ -1183,7 +1149,6 @@ def register_routes(app: Flask) -> None:
         if pass_errors.get("password"):
             flash(f"Contrasena invalida: {pass_errors['password']}", "error")
             return redirect(url_for("listar_usuarios"))
-        # BUG-104: validar fortaleza también al resetear
         strength_err = validate_password_strength(nueva)
         if strength_err:
             flash(f"Contrasena debil: {strength_err}", "error")
@@ -1225,7 +1190,6 @@ def register_routes(app: Flask) -> None:
         )
         return redirect(url_for("listar_usuarios"))
 
-    # BUG-032 / BUG-102: activar/desactivar usuarios
     @app.post("/usuarios/<int:usuario_id>/cambiar-activo")
     @admin_required
     def cambiar_activo(usuario_id: int) -> Any:
@@ -1249,7 +1213,6 @@ def register_routes(app: Flask) -> None:
         )
         return redirect(url_for("listar_usuarios"))
 
-    # BUG-121: gestión de sucursales
     @app.route("/sucursales")
     @admin_required
     def listar_sucursales() -> str:
@@ -1274,7 +1237,6 @@ def register_routes(app: Flask) -> None:
         )
         return redirect(url_for("listar_sucursales"))
 
-    # BUG-244: dashboard con estadisticas para administradores
     @app.get("/dashboard")
     @admin_required
     def dashboard() -> str:
@@ -1292,7 +1254,6 @@ def register_routes(app: Flask) -> None:
             total_usuarios=total_usuarios,
         )
 
-    # BUG-261: exportacion de incidencias a CSV
     @app.get("/incidencias/exportar.csv")
     @admin_required
     def exportar_incidencias_csv() -> Response:
@@ -1330,7 +1291,6 @@ def register_routes(app: Flask) -> None:
             headers={"Content-Disposition": "attachment; filename=incidencias.csv"},
         )
 
-    # BUG-238/240: ruta para generar backup de la base de datos
     @app.post("/admin/backup")
     @admin_required
     def hacer_backup() -> Any:
@@ -1341,7 +1301,6 @@ def register_routes(app: Flask) -> None:
             flash(f"Backup creado: {Path(result).name}", "success")
         return redirect(url_for("listar_usuarios"))
 
-    # BUG-285: pagina de mantenimiento
     @app.get("/mantenimiento")
     def mantenimiento() -> Any:
         return render_template("mantenimiento.html"), 503
@@ -1350,6 +1309,5 @@ def register_routes(app: Flask) -> None:
 if __name__ == "__main__":
     app = create_app()
     init_db(app)
-    # BUG-038: modo debug controlado por variable de entorno
     debug_mode = os.getenv("FLASK_DEBUG", "0") == "1"
     app.run(debug=debug_mode, port=int(os.getenv("PORT", "8080")))

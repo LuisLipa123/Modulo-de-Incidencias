@@ -414,7 +414,6 @@ def test_build_database_url_uses_postgres_parts(monkeypatch):
     assert build_database_url() == "postgresql+psycopg://postgres:secreto@localhost:5432/incidencias"
 
 
-# --- Batch 1: 10 nuevas validaciones ---
 
 
 def test_login_rejects_short_username(tmp_path):
@@ -633,7 +632,6 @@ def test_create_incidencia_rejects_descripcion_identical_to_titulo(tmp_path):
         assert Incidencia.query.count() == 0
 
 
-# --- Batch 2: 10 nuevas validaciones ---
 
 
 def test_login_rejects_username_with_special_chars(tmp_path):
@@ -874,7 +872,6 @@ def test_create_incidencia_rejects_short_descripcion_for_en_progreso(tmp_path):
         assert Incidencia.query.count() == 0
 
 
-# --- Batch 3: 10 nuevas validaciones ---
 
 
 def test_create_incidencia_rejects_single_word_titulo(tmp_path):
@@ -1141,7 +1138,6 @@ def test_edit_rejects_estado_change_from_cerrada(tmp_path):
         assert inc.estado == "Cerrada"
 
 
-# --- Batch 4: 20 nuevas validaciones ---
 
 
 def test_create_incidencia_rejects_titulo_starting_with_lowercase(tmp_path):
@@ -1612,7 +1608,6 @@ def test_ver_nonexistent_incidencia_redirects_with_error(tmp_path):
     assert b"La incidencia solicitada no existe." in response.data
 
 
-# --- Batch 5: 30 nuevos tests (bugs, bordes, flujos) ---
 
 
 def test_home_authenticated_redirects_to_incidencias(tmp_path):
@@ -1988,7 +1983,6 @@ def test_login_nonexistent_user_returns_credenciales_invalidas(tmp_path):
 
 
 def test_create_resuelta_empty_desc_shows_obligatoria_error(tmp_path):
-    """Regresion: descripcion vacia con estado Resuelta debe mostrar 'obligatoria', no el mensaje de Resuelta."""
     app = build_app(tmp_path)
     client = app.test_client()
     login(client)
@@ -2016,7 +2010,6 @@ def test_create_resuelta_empty_desc_shows_obligatoria_error(tmp_path):
 
 
 def test_create_cerrada_empty_desc_shows_obligatoria_error(tmp_path):
-    """Regresion: descripcion vacia con estado Cerrada debe mostrar 'obligatoria', no el mensaje de Cerrada."""
     app = build_app(tmp_path)
     client = app.test_client()
     login(client)

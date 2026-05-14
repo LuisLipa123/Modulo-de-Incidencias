@@ -23,7 +23,7 @@ if str(ROOT_DIR) not in sys.path:
 
 os.chdir(APP_DIR)
 
-from Incidencia.app import create_app, init_db  # noqa: E402
+from Incidencia.app import create_app, init_db
 
 HOST: Final[str] = "127.0.0.1"
 PORT: Final[int] = 8080
