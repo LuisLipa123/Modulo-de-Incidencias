@@ -17,7 +17,7 @@ manual.txt
 informe_*
 proof/
 correciones/
-Incidencia/tests/
+Incidencia/tests/test_app.py
 # Python bytecode
 __pycache__/
 *.pyc
