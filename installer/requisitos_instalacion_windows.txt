@@ -1,0 +1,12 @@
+REQUISITOS
+- Windows 10/11
+- Python 3.10+ en PATH (o definir PYTHON con la ruta al ejecutable)
+- Conexion a Internet para instalar dependencias con pip
+- Puerto 8080 libre
+- Carpeta "Incidencia" al mismo nivel que la carpeta "installer"
+
+INSTALACION Y USO
+1. Ejecuta "installer\\IncidenciaApp.exe" desde el directorio padre (donde esta "Incidencia").
+2. La app crea/usa .venv o venv en "installer" e instala dependencias.
+3. Se abre el navegador en http://127.0.0.1:8080.
+4. El log se guarda en "installer\\app.log".

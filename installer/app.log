@@ -1,0 +1,16 @@
+C:\Users\marce\Downloads\Modulo-de-Incidencias\Incidencia\app.py:222: UserWarning: SECRET_KEY no definida en el entorno. Se usa una clave aleatoria — las sesiones no persisten entre reinicios. Define SECRET_KEY en .env.
+  warnings.warn(
+ * Serving Flask app 'app'
+ * Debug mode: off
+WARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.
+ * Running on http://127.0.0.1:8080
+Press CTRL+C to quit
+127.0.0.1 - - [14/May/2026 11:47:08] "GET / HTTP/1.1" 302 -
+127.0.0.1 - - [14/May/2026 11:47:08] "GET /login HTTP/1.1" 200 -
+127.0.0.1 - - [14/May/2026 11:47:08] "GET /static/styles.css HTTP/1.1" 304 -
+127.0.0.1 - - [14/May/2026 11:47:27] "POST /login?next= HTTP/1.1" 302 -
+127.0.0.1 - - [14/May/2026 11:47:27] "GET /incidencias HTTP/1.1" 200 -
+127.0.0.1 - - [14/May/2026 11:47:27] "GET /static/styles.css HTTP/1.1" 304 -
+127.0.0.1 - - [14/May/2026 11:47:37] "POST /incidencias/1/eliminar HTTP/1.1" 302 -
+127.0.0.1 - - [14/May/2026 11:47:37] "GET /incidencias HTTP/1.1" 200 -
+127.0.0.1 - - [14/May/2026 11:47:37] "GET /static/styles.css HTTP/1.1" 304 -

@@ -1,0 +1,13 @@
+REQUISITOS
+- Linux con bash
+- Python 3.10+ en PATH
+- curl y xdg-open (para abrir el navegador)
+- Puerto 8080 libre
+- Carpeta "Incidencia" al mismo nivel que la carpeta "installer"
+
+INSTALACION Y USO
+1. Da permisos: chmod +x installer/run.sh
+2. Ejecuta: ./installer/run.sh
+3. Crea/usa .venv o venv en "installer" e instala dependencias.
+4. Abre el navegador en http://127.0.0.1:8080 (si no abre, hazlo manual).
+5. El log se guarda en "installer/app.log".
